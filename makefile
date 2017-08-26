@@ -16,7 +16,7 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 $(OBJ): $(ODIR)/%.o: src/%.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-hashmake: $(OBJ)
+hash: $(OBJ)
 	gcc -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: clean

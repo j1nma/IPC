@@ -11,8 +11,6 @@ int calculateMD5(const char *file_name, char *md5_sum) {
 	sprintf(cmd, MD5SUM_CMD_FMT, file_name);
 #undef MD5SUM_CMD_FMT
 
-	puts(cmd);
-
 	FILE *p = popen(cmd, "r");
 	if (p == NULL) return 0;
 
@@ -45,7 +43,7 @@ void recieveAndCalculate(int fileQuantity, char **files) {
 			if (!calculateMD5(files[i], md5)) {
 				puts("Error occured!");
 			} else {
-				printf("Success! MD5 sum of %s is: %s\n", files[i], md5);
+				printf("%s : %s\n", files[i], md5);
 			}
 
 		}
