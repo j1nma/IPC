@@ -1,12 +1,13 @@
 #include <stdio.h>
-#include <openssl/md5.h>
+#include <ctype.h>
+
 #include <hashmake.h>
 
-// (tener instalado openssl)
+// (tener instalado md5sum)
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
 
-	readAndHash(argc, argv);
+	recieveAndCalculate(argc, argv);
 	
 	return 0;
 }

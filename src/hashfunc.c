@@ -1,46 +1,54 @@
 #include <stdio.h>
-#include <openssl/md5.h>
+#include <ctype.h>
+
+#include <macros.h>
 #include <hashmake.h>
 
-void hashFile(int argc, const char* fileName) {
+int calculateMD5(const char *file_name, char *md5_sum) {
 
-	unsigned char c[MD5_DIGEST_LENGTH];
-	FILE* file = fopen(fileName, "r");
-	MD5_CTX mdContext;
-	int bytes;
-	unsigned char data[1024];
+#define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
+	char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
+	sprintf(cmd, MD5SUM_CMD_FMT, file_name);
+#undef MD5SUM_CMD_FMT
 
-	if ( file == NULL ) {
-		printf ("%s can't be opened.\n", fileName);
-		return;
+	puts(cmd);
+
+	FILE *p = popen(cmd, "r");
+	if (p == NULL) return 0;
+
+	int i, ch;
+	for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
+		*md5_sum++ = ch;
 	}
 
-	MD5_Init (&mdContext);
+	*md5_sum = '\0';
+	pclose(p);
 
-	while ((bytes = fread (data, 1, 1024, file)) != 0)
-		MD5_Update (&mdContext, data, bytes);
-
-	MD5_Final (c, &mdContext);
-
-	for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
-		printf("%02x", c[i]);
-
-	printf (" %s\n", fileName);
-
-	fclose (file);
-
+	return i == MD5_LEN;
 }
 
-void readAndHash(int argc, char** files) {
+void recieveAndCalculate(int fileQuantity, char **files) {
 
-	if (argc >= 2) {
+	// https://stackoverflow.com/questions/3395690/md5sum-of-file-in-linux-c
 
-		printf("%d %s %s\n\n", argc - 1, (argc - 1 == 1) ? "file" : "files", "to process:");
+	if (fileQuantity > 1) {
+
+		printf("%d %s %s\n\n", fileQuantity - 1, (fileQuantity - 1 == 1) ? "file" : "files", "to process:");
 
 		// https://stackoverflow.com/questions/10324611/how-to-calculate-the-md5-hash-of-a-large-file-in-c
 
-		for (int i = 1; i < argc ; i++)
-			hashFile(argc, files[i]);
+		char md5[MD5_LEN + 1];
+
+		for (int i = 1; i < fileQuantity ; i++) {
+			// hashFile(fileQuantity, files[i]);
+
+			if (!calculateMD5(files[i], md5)) {
+				puts("Error occured!");
+			} else {
+				printf("Success! MD5 sum of %s is: %s\n", files[i], md5);
+			}
+
+		}
 
 	} else {
 
