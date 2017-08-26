@@ -1,5 +1,9 @@
 /*
-sm sm sm
+Calculates the MD5 file passed as parameter.
 */
+void hashFile(int argc, const char* file);
 
-void readAndHash(int argc, char **argv);
+/*
+Calculates all MD5 files passed as from the command line.
+*/
+void readAndHash(int argc, char** files);
