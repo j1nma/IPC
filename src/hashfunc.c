@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <macros.h>
 #include <hashmake.h>
 
@@ -14,6 +18,13 @@ char* concat(const char *s1, const char *s2)
 	strcpy(result, s1);
 	strcat(result, s2);
 	return result;
+}
+
+int is_regular_file(const char *path)
+{
+	struct stat path_stat;
+	stat(path, &path_stat);
+	return S_ISREG(path_stat.st_mode);
 }
 
 int calculateMD5(char *file_name, char *md5_sum) {
@@ -48,13 +59,17 @@ void listDir(char* path) {
 			int isFaga = !strcmp(ent->d_name, "..");
 			if (!isCurrent && !isFaga) {
 
-				if (!calculateMD5(concat(concat(path, "/"), ent->d_name), md5)) {
-					puts("Error occured with MD5!");
-				} else {
-					printf("%s : %s\n", ent->d_name, md5);
+				char* current = concat(concat(path, "/"), ent->d_name);
+				
+				if (is_regular_file(current)) {
+					if (calculateMD5(current, md5)) {
+						printf("%s : %s\n", current, md5);
+					} else {
+						puts("Error occured with MD5!");
+					}
 				}
 
-				listDir(concat(concat(path, "/"), ent->d_name));
+				listDir(current);
 			}
 
 		}
