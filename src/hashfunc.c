@@ -11,17 +11,22 @@
 #include <macros.h>
 #include <hashmake.h>
 
-char* concat(const char *s1, const char *s2)
-{
-	char *result = malloc(strlen(s1) + strlen(s2) + 1); //+1 for the zero-terminator
+// https://github.com/espressif/esp-idf/issues/823
+
+char* concat(const char *s1, const char *s2) {
+	char *result = malloc(strlen(s1) + strlen(s2) + 1); 
+
+	//+1 for the zero-terminator
 	//in real code you would check for errors in malloc here
+
 	strcpy(result, s1);
 	strcat(result, s2);
 	return result;
 }
 
-int is_regular_file(const char *path)
-{
+// https://stackoverflow.com/questions/4553012/checking-if-a-file-is-a-directory-or-just-a-file
+
+int is_regular_file(const char *path) {
 	struct stat path_stat;
 	stat(path, &path_stat);
 	return S_ISREG(path_stat.st_mode);
@@ -60,7 +65,7 @@ void listDir(char* path) {
 			if (!isCurrent && !isFaga) {
 
 				char* current = concat(concat(path, "/"), ent->d_name);
-				
+
 				if (is_regular_file(current)) {
 					if (calculateMD5(current, md5)) {
 						printf("%s : %s\n", current, md5);
