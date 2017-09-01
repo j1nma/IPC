@@ -1,8 +1,20 @@
 #include <stdio.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include <macros.h>
 #include <hashmake.h>
+
+char* concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the zero-terminator
+    //in real code you would check for errors in malloc here
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
 
 int calculateMD5(const char *file_name, char *md5_sum) {
 
@@ -23,6 +35,27 @@ int calculateMD5(const char *file_name, char *md5_sum) {
 	pclose(p);
 
 	return i == MD5_LEN;
+}
+
+void listDir(char* path) {
+	DIR* dir;
+	struct dirent *ent;
+
+	if ((dir = opendir(path)) != NULL) {
+		while (( ent = readdir(dir)) != NULL) {
+			int isCurrent = !strcmp(ent->d_name, ".");
+			int isFaga = !strcmp(ent->d_name, "..");
+			if (!isCurrent && !isFaga) { 
+				
+				printf("%s\n", ent->d_name);
+
+				listDir(concat(concat(path, "/"), ent->d_name));
+			}
+			
+		}
+
+		closedir(dir);
+	}
 }
 
 void recieveAndCalculate(int fileQuantity, char **files) {

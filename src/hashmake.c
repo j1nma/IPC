@@ -7,7 +7,8 @@
 
 int main(int argc, char **argv) {
 
-	recieveAndCalculate(argc, argv);
+	// recieveAndCalculate(argc, argv);
+	listDir(argv[1]);
 	
 	return 0;
 }
