@@ -9,14 +9,14 @@
 
 char* concat(const char *s1, const char *s2)
 {
-    char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the zero-terminator
-    //in real code you would check for errors in malloc here
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
+	char *result = malloc(strlen(s1) + strlen(s2) + 1); //+1 for the zero-terminator
+	//in real code you would check for errors in malloc here
+	strcpy(result, s1);
+	strcat(result, s2);
+	return result;
 }
 
-int calculateMD5(const char *file_name, char *md5_sum) {
+int calculateMD5(char *file_name, char *md5_sum) {
 
 #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
 	char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
@@ -33,7 +33,6 @@ int calculateMD5(const char *file_name, char *md5_sum) {
 
 	*md5_sum = '\0';
 	pclose(p);
-
 	return i == MD5_LEN;
 }
 
@@ -41,17 +40,23 @@ void listDir(char* path) {
 	DIR* dir;
 	struct dirent *ent;
 
+	char md5[MD5_LEN + 1];
+
 	if ((dir = opendir(path)) != NULL) {
 		while (( ent = readdir(dir)) != NULL) {
 			int isCurrent = !strcmp(ent->d_name, ".");
 			int isFaga = !strcmp(ent->d_name, "..");
-			if (!isCurrent && !isFaga) { 
-				
-				printf("%s\n", ent->d_name);
+			if (!isCurrent && !isFaga) {
+
+				if (!calculateMD5(concat(concat(path, "/"), ent->d_name), md5)) {
+					puts("Error occured with MD5!");
+				} else {
+					printf("%s : %s\n", ent->d_name, md5);
+				}
 
 				listDir(concat(concat(path, "/"), ent->d_name));
 			}
-			
+
 		}
 
 		closedir(dir);
