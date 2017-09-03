@@ -18,7 +18,7 @@ char* concat(const char *s1, const char *s2) {
 
 	if (result == NULL) {
 		printf("Memory allocation failed");
-		return;
+		return NULL;
 	}
 
 	strcpy(result, s1);
@@ -68,6 +68,10 @@ void listDir(char* path) {
 			if (!isCurrent && !isFaga) {
 
 				char* current = concat(concat(path, "/"), ent->d_name);
+				if (current == NULL) {
+					closedir(dir);
+					return;
+				}
 
 				if (is_regular_file(current)) {
 					if (calculateMD5(current, md5)) {
