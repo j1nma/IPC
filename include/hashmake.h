@@ -1,14 +1,9 @@
 /*
 Gets each directory until it cannot find another.
 */
-void listDir(char* path);
+void listDir(char *path);
 
 /*
 Calculates the MD5 file passed as parameter.
 */
 int calculateMD5(char *file_name, char *md5_sum);
-
-/*
-Calculates all MD5 files passed from the command line.
-*/
-void recieveAndCalculate(const int argc, char **files);

@@ -14,10 +14,12 @@
 // https://github.com/espressif/esp-idf/issues/823
 
 char* concat(const char *s1, const char *s2) {
-	char *result = malloc(strlen(s1) + strlen(s2) + 1); 
+	char *result = malloc(strlen(s1) + strlen(s2) + 1);
 
-	//+1 for the zero-terminator
-	//in real code you would check for errors in malloc here
+	if (result == NULL) {
+		printf("Memory allocation failed");
+		return;
+	}
 
 	strcpy(result, s1);
 	strcat(result, s2);
@@ -29,6 +31,7 @@ char* concat(const char *s1, const char *s2) {
 int is_regular_file(const char *path) {
 	struct stat path_stat;
 	stat(path, &path_stat);
+
 	return S_ISREG(path_stat.st_mode);
 }
 
@@ -81,35 +84,4 @@ void listDir(char* path) {
 
 		closedir(dir);
 	}
-}
-
-void recieveAndCalculate(int fileQuantity, char **files) {
-
-	// https://stackoverflow.com/questions/3395690/md5sum-of-file-in-linux-c
-
-	if (fileQuantity > 1) {
-
-		printf("%d %s %s\n\n", fileQuantity - 1, (fileQuantity - 1 == 1) ? "file" : "files", "to process:");
-
-		// https://stackoverflow.com/questions/10324611/how-to-calculate-the-md5-hash-of-a-large-file-in-c
-
-		char md5[MD5_LEN + 1];
-
-		for (int i = 1; i < fileQuantity ; i++) {
-			// hashFile(fileQuantity, files[i]);
-
-			if (!calculateMD5(files[i], md5)) {
-				puts("Error occured!");
-			} else {
-				printf("%s : %s\n", files[i], md5);
-			}
-
-		}
-
-	} else {
-
-		printf("%s\n", "No files provided.");
-
-	}
-
 }
