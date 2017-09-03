@@ -10,10 +10,9 @@ These instructions will get you a copy of the project up and running on your loc
 
 What things you need to install the software and how to install them
 
-```
 md5sum
 openssl
-```
+
 
 ### Installing
 
@@ -44,13 +43,13 @@ End with an example of getting some data out of the system or using it for a lit
 
 ## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
+<!-- * **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth) -->
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+See the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
 ## License
 
 ## Acknowledgments
 
 * Volkan Yazıcı https://github.com/vy/libpqueue
-* Stackoverflow
+* stackoverflow
