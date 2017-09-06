@@ -39,4 +39,3 @@ See the list of [contributors](https://github.com/j1nma/IPC/contributors) who pa
 ## Acknowledgments
 
 * Volkan Yazıcı https://github.com/vy/libpqueue
-* stackoverflow
