@@ -15,6 +15,7 @@ struct QNode *newNode(char* k) {
 struct Queue *createQueue() {
     struct Queue *q = (struct Queue*)malloc(sizeof(struct Queue));
     q->front = q->rear = NULL;
+    q->size = 0;
     return q;
 }
 
@@ -24,11 +25,13 @@ void enQueue(struct Queue *q, char* k) {
     if (q->rear == NULL)
     {
         q->front = q->rear = temp;
+        q->size++;
         return;
     }
 
     q->rear->next = temp;
     q->rear = temp;
+    q->size++;
 }
 
 struct QNode *deQueue(struct Queue *q) {
@@ -40,5 +43,7 @@ struct QNode *deQueue(struct Queue *q) {
 
     if (q->front == NULL)
         q->rear = NULL;
+
+    q->size--;
     return temp;
 }
