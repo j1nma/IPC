@@ -16,15 +16,13 @@ What things you need to install the software and how to install them
 
 ### Installing
 
-Inside the src folder:
+Inside IPC folder:
 
 ```
-make clean
 make
-make hash
 ```
 
-## Running:
+## Running inside /bin:
 
 ```
 ./hash testFolder
@@ -34,7 +32,7 @@ make hash
 
 <!-- * **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth) -->
 
-See the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+See the list of [contributors](https://github.com/j1nma/IPC/contributors) who participated in this project.
 
 ## License
 

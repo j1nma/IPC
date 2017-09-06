@@ -7,17 +7,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <macros.h>
-#include <hashmake.h>
+#include <hashfunc.h>
 
-// https://github.com/espressif/esp-idf/issues/823
+// https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 
 char* concat(const char *s1, const char *s2) {
 	char *result = malloc(strlen(s1) + strlen(s2) + 1);
 
 	if (result == NULL) {
-		printf("Memory allocation failed");
+		printf("Memory allocation failed.");
 		return NULL;
 	}
 
@@ -30,29 +31,11 @@ char* concat(const char *s1, const char *s2) {
 
 int is_regular_file(const char *path) {
 	struct stat path_stat;
-	stat(path, &path_stat);
+
+	if (stat(path, &path_stat) != 0)
+		return 0;
 
 	return S_ISREG(path_stat.st_mode);
-}
-
-int calculateMD5(char *file_name, char *md5_sum) {
-
-#define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
-	char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
-	sprintf(cmd, MD5SUM_CMD_FMT, file_name);
-#undef MD5SUM_CMD_FMT
-
-	FILE *p = popen(cmd, "r");
-	if (p == NULL) return 0;
-
-	int i, ch;
-	for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
-		*md5_sum++ = ch;
-	}
-
-	*md5_sum = '\0';
-	pclose(p);
-	return i == MD5_LEN;
 }
 
 void listDir(char* path) {
@@ -63,8 +46,10 @@ void listDir(char* path) {
 
 	if ((dir = opendir(path)) != NULL) {
 		while (( ent = readdir(dir)) != NULL) {
+
 			int isCurrent = !strcmp(ent->d_name, ".");
 			int isFaga = !strcmp(ent->d_name, "..");
+
 			if (!isCurrent && !isFaga) {
 
 				char* current = concat(concat(path, "/"), ent->d_name);
@@ -77,7 +62,7 @@ void listDir(char* path) {
 					if (calculateMD5(current, md5)) {
 						printf("%s : %s\n", current, md5);
 					} else {
-						puts("Error occured with MD5!");
+						puts("Error occured with MD5.");
 					}
 				}
 
@@ -88,4 +73,55 @@ void listDir(char* path) {
 
 		closedir(dir);
 	}
+}
+
+void loadFiles(char* path, struct Queue *q) {
+	DIR* dir;
+	struct dirent *ent;
+
+	if ((dir = opendir(path)) != NULL) {
+
+		while (( ent = readdir(dir)) != NULL) {
+
+			int isCurrent = !strcmp(ent->d_name, ".");
+			int isFaga = !strcmp(ent->d_name, "..");
+
+			if (!isCurrent && !isFaga) {
+
+				char* current = concat(concat(path, "/"), ent->d_name);
+				if (current == NULL) {
+					closedir(dir);
+					return;
+				}
+
+				if (is_regular_file(current)) {
+
+					int fd = open(current, O_RDONLY);
+					struct stat file_stat;
+					fstat(fd, &file_stat);
+
+					enQueue(q, current);
+
+				}
+
+				loadFiles(current, q);
+			}
+
+		}
+
+		closedir(dir);
+	}
+}
+
+int main(int argc, char **argv) {
+
+	struct Queue * q = createQueue();
+	loadFiles(argv[1], q);
+
+	struct QNode * aux;
+
+	while ( (aux = deQueue(q)) != NULL)
+			printf("%s\n", aux->key);
+
+	return 0;
 }
