@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -13,6 +14,11 @@
 
 #include "macros.h"
 #include "hashfunc.h"
+
+
+#define SLAVES 5
+#define TRUE 1
+#define FALSE 0
 
 void* create_shared_memory(size_t size) {
 	// Our memory buffer will be readable and writable:
@@ -27,7 +33,6 @@ void* create_shared_memory(size_t size) {
 	// but the manpage for `mmap` explains their purpose.
 	return mmap(NULL, size, protection, visibility, 0, 0);
 }
-
 // https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 
 char* concat(const char *s1, const char *s2) {
@@ -89,47 +94,156 @@ void loadFiles(char* path, struct Queue *q) {
 	}
 }
 
-int startSlaves(struct Queue * q) {
+void send(int descriptor[2], int pid) {
+	int w = 4;
+	int written = 0;
+	int fd;
+
+	close(descriptor[0]);
+	fd = descriptor[1];
+
+	char str[12];
+	sprintf(str, "%d", pid);
+
+	
+	while (written < w){
+		written += write(
+		               fd, str + written, w - written
+		           );
+	}
+
+	close(descriptor[1]);
+
+}
+
+void recieve(int descriptor[], int pid) {
+	int r = 0;
+	int fd;
+	int size = 1024;
+	char readBuffer[1024];
+	char * readPtr = readBuffer;
+
+	close(descriptor[1]);
+	fd = descriptor[0];
+	
+
+	while (size > 0 && (r = read(fd, readPtr, size))) {
+		readPtr += r;
+		size -= r;
+	}
+
+	readBuffer[readPtr - readBuffer] = '\0';
+
+	printf("%i -> %s\n", pid, readBuffer);
+
+	close(descriptor[0]);
+
+}
+
+
+int toMasterDescriptors[SLAVES][2];
+int toSlavesDescriptors[SLAVES][2];
+
+
+void setupSlavePipe(int i) {
+	
+	int toSlave[2];
+	int toMaster[2];
+
+	if (pipe(toSlave) != 0) {
+		printf("Couldnt create pipe.\n");
+	}
+	if (pipe(toMaster) != 0) {
+		printf("Couldnt create pipe.\n");
+	}
+	
+	int k;
+	for (k = 0; k < 2; k++) toSlavesDescriptors[i][k] = toSlave[k];
+	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
+}
+
+
+
+void startSlavePipe(int i) {
+
+	int toSlave[2];
+	int toMaster[2];
+	int k;
+	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
+	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
+
+	
+	send(toMaster, getpid());
+
+	recieve(toSlave, getpid());
+
+
+}
+
+void startMasterPipe(int i) {
+
+
+	int toSlave[2];
+	int toMaster[2];
+	int k;
+	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
+	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
+
+	
+	recieve(toMaster, getpid());
+
+	send(toSlave, getpid());
+
+}
+
+int start(struct Queue * q) {
+
 	int i;
 	pid_t pid;
 	int status;
 
-	// int filesCount = q->size;
 
-	// char md5[MD5_LEN + 1];
+	for (int i = 0; i < SLAVES; ++i) {
+		setupSlavePipe(i);
+	}
 
-	void* shmem = create_shared_memory(1024);
-	memcpy(shmem, q, sizeof(*q));
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < SLAVES; i++) {
 
 		if ((pid = fork()) == -1) {
-
+			// Fork returned error.
 			perror("Fork error.");
 			exit(EXIT_FAILURE);
 
 		} else if (pid == 0) {
-
-			printf("Child (%d): %d\n", i + 1, getpid());
-
-			printf("child dequed %s\n", deQueue(q)->key);
-			memcpy(shmem, q, sizeof(*q));
-
+			// This is the child.
+			// sleep(i);
+			// printf("Child (%d): %d\n", i + 1, getpid());
+			sleep(i);
+			startSlavePipe(i);
 			exit(EXIT_SUCCESS);
-
 		} else {
-			printf("parent first %s\n", q->front->key);
-			sleep(5);
-			printf("parent first %s\n", q->front->key);
+			// This is the parent.
+			// sleep(10);
+			// printf("Master (%d): %d\n", i + 1, getpid());
+			startMasterPipe(i);
 		}
 	}
 
+	// The program only gets here if its the parent/master.
 	while (-1 != wait(&status));
 
+	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
+	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
+
+
+	printf("Termino el padre.\n");
 	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {
+
+	srand(time(NULL));
 
 	struct Queue * q = createQueue();
 
@@ -140,7 +254,7 @@ int main(int argc, char **argv) {
 	// while ( (aux = deQueue(q)) != NULL)
 	// 	printf("%s\n", aux->key);
 
-	startSlaves(q);
+	start(q);
 
 	return 0;
 }
