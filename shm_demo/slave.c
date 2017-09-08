@@ -21,7 +21,7 @@
 
 #define SEMNAME "semy"
 
-#define SHMOBJ_PATH "itba.so.grupo3.tp1"
+#define SHMOBJ_PATH "/itba.so.grupo3.tp1"
 
 #define SEMINIT 1
 
@@ -35,7 +35,7 @@
 sem_t * sem_id;
 
 struct shared_data {
-	char buffer[1024][MD5_LEN+1]; /* +1 for null terminated string. */
+	char buffer[1024][MD5_LEN + 1]; /* +1 for null terminated string. */
 	int last;
 };
 
@@ -77,7 +77,6 @@ void signal_callback_handler(int signum) {
 int main() {
 
 	int shmfd;
-	int vol, cur;
 	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
 	struct shared_data * shared_msg;      /* The shared segment, and head of the messages list */
 
@@ -110,32 +109,27 @@ int main() {
 
 	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", shared_seg_size);
 
-	vol = 10;
-	cur = 0;
-
 	while (1) {
 
+		sleep(2);
 		printf("Waiting \n");
 		sem_wait(sem_id);
+		printf("Locked, About to sleep \n");
 
 		int aux = shared_msg->last;
 
 		char * test = "a527cd69111a5dbe36a198c3591c4005";
 
 		if (aux < 1024) {
-
 			strcpy(shared_msg->buffer[++aux], test);
 			shared_msg->last++;
-
 		}
 
-		// printf("%s\n", shared_msg->q->front->key);
-
-
+		sleep(2);
 		sem_post(sem_id);
-		sleep(1);
 
 		printf("posting \n");
+
 	}
 
 

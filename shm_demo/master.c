@@ -21,7 +21,7 @@
 
 #define SEMNAME "semy"
 
-#define SHMOBJ_PATH "itba.so.grupo3.tp1"
+#define SHMOBJ_PATH "/itba.so.grupo3.tp1"
 
 #define SEMINIT 1
 
@@ -35,7 +35,7 @@
 sem_t * sem_id;
 
 struct shared_data {
-	char buffer[1024][MD5_LEN+1]; /* +1 for null terminated string. */
+	char buffer[1024][MD5_LEN + 1]; /* +1 for null terminated string. */
 	int last;
 };
 
@@ -77,7 +77,6 @@ void signal_callback_handler(int signum) {
 int main() {
 
 	int shmfd;
-	int vol, cur;
 	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
 	struct shared_data *shared_msg;      /* The shared segment, and head of the messages list */
 
@@ -116,13 +115,7 @@ int main() {
 
 	sem_post(sem_id);
 
-	vol = 10;
-	cur = 0;
-
 	while (1) {
-
-		sleep(2);
-		printf("Waiting \n");
 
 		// sem wait blocks; sem trywait will fail rather than block.
 
@@ -131,20 +124,21 @@ int main() {
 		another process or thread blocked in a sem_wait(3) call will be woken
 		up and proceed to lock the semaphore. */
 
+		sleep(2);
+		printf("Waiting \n");
 		sem_wait(sem_id);
 
+		printf("Locked, About to sleep \n");
 		int i;
 		for (i = 0; i < shared_msg->last; i++) {
 			printf("%s\n", shared_msg->buffer[i]);
 		}
-
+		
+		sleep(3);
 		sem_post(sem_id);
-		sleep(2);
 
 		printf("posting \n");
 
-		vol++;
-		cur++;
 	}
 
 
