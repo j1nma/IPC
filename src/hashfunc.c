@@ -20,6 +20,8 @@
 #define TRUE 1
 #define FALSE 0
 
+#define SLAVE_READY 1
+
 void* create_shared_memory(size_t size) {
 	// Our memory buffer will be readable and writable:
 	int protection = PROT_READ | PROT_WRITE;
@@ -94,21 +96,18 @@ void loadFiles(char* path, struct Queue *q) {
 	}
 }
 
-void send(int descriptor[2], int pid) {
-	int w = 4;
+void send(int descriptor[2], char* data, int length) {
+	int w = length;
 	int written = 0;
 	int fd;
 
 	close(descriptor[0]);
 	fd = descriptor[1];
 
-	char str[12];
-	sprintf(str, "%d", pid);
-
 	
 	while (written < w){
 		written += write(
-		               fd, str + written, w - written
+		               fd, data + written, w - written
 		           );
 	}
 
@@ -116,11 +115,11 @@ void send(int descriptor[2], int pid) {
 
 }
 
-void recieve(int descriptor[], int pid) {
+char* recieve(int descriptor[], int pid) {
 	int r = 0;
 	int fd;
 	int size = 1024;
-	char readBuffer[1024];
+	char* readBuffer = malloc(sizeof(char) * 1024);
 	char * readPtr = readBuffer;
 
 	close(descriptor[1]);
@@ -134,10 +133,11 @@ void recieve(int descriptor[], int pid) {
 
 	readBuffer[readPtr - readBuffer] = '\0';
 
-	printf("%i -> %s\n", pid, readBuffer);
+	// printf("%i -> %s\n", pid, readBuffer);
 
 	close(descriptor[0]);
 
+	return readBuffer;
 }
 
 
@@ -172,13 +172,16 @@ void startSlavePipe(int i) {
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 
-	
-	send(toMaster, getpid());
+	char data[1];
+	data[0] = SLAVE_READY;
+	send(toMaster, data, 1);
 
-	recieve(toSlave, getpid());
-
+	char* ret = recieve(toSlave, getpid());
+	printf("(%i) Got job: %s\n", getpid(), ret);
 
 }
+
+
 
 void startMasterPipe(int i) {
 
@@ -190,9 +193,17 @@ void startMasterPipe(int i) {
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
 	
-	recieve(toMaster, getpid());
+	char* ret = recieve(toMaster, getpid());
+	
+	if (ret[0] == SLAVE_READY) {
+		printf("Slave sent ready, sending job...\n");
+		char *job = "/Dev/Data/Testy/SO/So/SOSOSO/archivo.ai";
+		send(toSlave, job, strlen(job));
+	}else{
+		printf("Error: %d\n", ret[0]);
+	}
 
-	send(toSlave, getpid());
+	// send(toSlave, getpid());
 
 }
 
@@ -219,7 +230,7 @@ int start(struct Queue * q) {
 			// This is the child.
 			// sleep(i);
 			// printf("Child (%d): %d\n", i + 1, getpid());
-			sleep(i);
+			// sleep(i);
 			startSlavePipe(i);
 			exit(EXIT_SUCCESS);
 		} else {
