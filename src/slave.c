@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 #include <signal.h>
 #include <semaphore.h>
@@ -11,13 +12,16 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "include/queue.h"
+#include "include/macros.h"
+
 
 #define SEGMENTSIZE sizeof(sem_t)
 #define SEGMENTPERM 0666 // All users can read and write but not execute.
 
 #define SEMNAME "semy"
 
-#define SHMOBJ_PATH "/shm"
+#define SHMOBJ_PATH "itba.so.grupo3.tp1"
 
 #define SEMINIT 1
 
@@ -31,8 +35,8 @@
 sem_t * sem_id;
 
 struct shared_data {
-	int var1;
-	int var2;
+	char buffer[1024][MD5_LEN+1]; /* +1 for null terminated string. */
+	int last;
 };
 
 /**
@@ -75,7 +79,7 @@ int main() {
 	int shmfd;
 	int vol, cur;
 	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data *shared_msg;      /* The shared segment, and head of the messages list */
+	struct shared_data * shared_msg;      /* The shared segment, and head of the messages list */
 
 	/* Register signal and signal handler */
 	signal(SIGINT, signal_callback_handler);
@@ -100,28 +104,37 @@ int main() {
 	/* Requesting the shared segment  */
 	shared_msg = (struct shared_data *) mmap(NULL, shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 	if (shared_msg == NULL) {
-		perror("Could not obtaine shared segment.");
+		perror("Could not obtain shared segment.");
 		exit(1);
 	}
 
 	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", shared_seg_size);
-
-
 
 	vol = 10;
 	cur = 0;
 
 	while (1) {
 
-		sleep(2);
 		printf("Waiting \n");
 		sem_wait(sem_id);
-		printf("Locked, About to sleep \n");
-		printf("SLAVES TURN \n");
-		printf("The var1 is %d \n", shared_msg->var1);
-		printf("The var2 is %d \n", shared_msg->var2);
-		sleep(5);
+
+		int aux = shared_msg->last;
+
+		char * test = "a527cd69111a5dbe36a198c3591c4005";
+
+		if (aux < 1024) {
+
+			strcpy(shared_msg->buffer[++aux], test);
+			shared_msg->last++;
+
+		}
+
+		// printf("%s\n", shared_msg->q->front->key);
+
+
 		sem_post(sem_id);
+		sleep(1);
+
 		printf("posting \n");
 	}
 

@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 #include <signal.h>
 #include <semaphore.h>
@@ -11,13 +12,16 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "include/queue.h"
+#include "include/macros.h"
+
 
 #define SEGMENTSIZE sizeof(sem_t)
 #define SEGMENTPERM 0666 // All users can read and write but not execute.
 
 #define SEMNAME "semy"
 
-#define SHMOBJ_PATH "/shm"
+#define SHMOBJ_PATH "itba.so.grupo3.tp1"
 
 #define SEMINIT 1
 
@@ -31,8 +35,8 @@
 sem_t * sem_id;
 
 struct shared_data {
-	int var1;
-	int var2;
+	char buffer[1024][MD5_LEN+1]; /* +1 for null terminated string. */
+	int last;
 };
 
 /**
@@ -106,13 +110,17 @@ int main() {
 
 	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", shared_seg_size);
 
+	sem_wait(sem_id);
 
+	shared_msg->last = 0;
+
+	sem_post(sem_id);
 
 	vol = 10;
 	cur = 0;
 
 	while (1) {
-		
+
 		sleep(2);
 		printf("Waiting \n");
 
@@ -124,14 +132,17 @@ int main() {
 		up and proceed to lock the semaphore. */
 
 		sem_wait(sem_id);
-		printf("Locked, About to sleep \n");
-		shared_msg->var1 = vol;
-		shared_msg->var2 = cur;
-		printf("The var1 is %d \n", shared_msg->var1);
-		printf("The var2 is %d \n", shared_msg->var2);
-		sleep(3);
+
+		int i;
+		for (i = 0; i < shared_msg->last; i++) {
+			printf("%s\n", shared_msg->buffer[i]);
+		}
+
 		sem_post(sem_id);
+		sleep(2);
+
 		printf("posting \n");
+
 		vol++;
 		cur++;
 	}

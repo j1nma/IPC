@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "queue.h"
+#include "include/queue.h"
 
 // http://www.geeksforgeeks.org/queue-set-2-linked-list-implementation/
 

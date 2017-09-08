@@ -33,6 +33,7 @@ void* create_shared_memory(size_t size) {
 	// but the manpage for `mmap` explains their purpose.
 	return mmap(NULL, size, protection, visibility, 0, 0);
 }
+
 // https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 
 char* concat(const char *s1, const char *s2) {
@@ -107,9 +108,7 @@ void send(int descriptor[2], int pid) {
 
 	
 	while (written < w){
-		written += write(
-		               fd, str + written, w - written
-		           );
+		written += write(fd, str + written, w - written);
 	}
 
 	close(descriptor[1]);
@@ -151,10 +150,10 @@ void setupSlavePipe(int i) {
 	int toMaster[2];
 
 	if (pipe(toSlave) != 0) {
-		printf("Couldnt create pipe.\n");
+		printf("Could not create pipe.\n");
 	}
 	if (pipe(toMaster) != 0) {
-		printf("Couldnt create pipe.\n");
+		printf("Could not create pipe.\n");
 	}
 	
 	int k;
