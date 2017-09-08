@@ -22,6 +22,14 @@
 
 #define SLAVE_READY 1
 
+
+
+
+int toMasterDescriptors[SLAVES][2];
+int toSlavesDescriptors[SLAVES][2];
+
+
+
 void* create_shared_memory(size_t size) {
 	// Our memory buffer will be readable and writable:
 	int protection = PROT_READ | PROT_WRITE;
@@ -96,7 +104,11 @@ void loadFiles(char* path, struct Queue *q) {
 	}
 }
 
+
+
 void send(int descriptor[2], char* data, int length) {
+
+	// This function is basiclly that that was given to us as an example.
 	int w = length;
 	int written = 0;
 	int fd;
@@ -104,8 +116,7 @@ void send(int descriptor[2], char* data, int length) {
 	close(descriptor[0]);
 	fd = descriptor[1];
 
-	
-	while (written < w){
+	while (written < w) {
 		written += write(
 		               fd, data + written, w - written
 		           );
@@ -116,6 +127,8 @@ void send(int descriptor[2], char* data, int length) {
 }
 
 char* recieve(int descriptor[], int pid) {
+
+	// This function is basiclly that that was given to us as an example.
 	int r = 0;
 	int fd;
 	int size = 1024;
@@ -124,7 +137,7 @@ char* recieve(int descriptor[], int pid) {
 
 	close(descriptor[1]);
 	fd = descriptor[0];
-	
+
 
 	while (size > 0 && (r = read(fd, readPtr, size))) {
 		readPtr += r;
@@ -133,7 +146,6 @@ char* recieve(int descriptor[], int pid) {
 
 	readBuffer[readPtr - readBuffer] = '\0';
 
-	// printf("%i -> %s\n", pid, readBuffer);
 
 	close(descriptor[0]);
 
@@ -141,12 +153,11 @@ char* recieve(int descriptor[], int pid) {
 }
 
 
-int toMasterDescriptors[SLAVES][2];
-int toSlavesDescriptors[SLAVES][2];
 
 
 void setupSlavePipe(int i) {
-	
+
+	//Creating both file descriptors. One master->slave and the other slave->master.
 	int toSlave[2];
 	int toMaster[2];
 
@@ -156,7 +167,7 @@ void setupSlavePipe(int i) {
 	if (pipe(toMaster) != 0) {
 		printf("Couldnt create pipe.\n");
 	}
-	
+
 	int k;
 	for (k = 0; k < 2; k++) toSlavesDescriptors[i][k] = toSlave[k];
 	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
@@ -164,46 +175,50 @@ void setupSlavePipe(int i) {
 
 
 
-void startSlavePipe(int i) {
+void startSlave(int i) {
 
+	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
+	int k;
 	int toSlave[2];
 	int toMaster[2];
-	int k;
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 
+	// Sending the SLAVE_READY to notify the master that the slave is ready for work.
 	char data[1];
 	data[0] = SLAVE_READY;
 	send(toMaster, data, 1);
 
+	// After sending, wait for a job directory.
 	char* ret = recieve(toSlave, getpid());
+
+
 	printf("(%i) Got job: %s\n", getpid(), ret);
 
 }
 
 
 
-void startMasterPipe(int i) {
+void startMaster(int i) {
 
 
+	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
+	int k;
 	int toSlave[2];
 	int toMaster[2];
-	int k;
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
-	
+
 	char* ret = recieve(toMaster, getpid());
-	
+
 	if (ret[0] == SLAVE_READY) {
 		printf("Slave sent ready, sending job...\n");
 		char *job = "/Dev/Data/Testy/SO/So/SOSOSO/archivo.ai";
 		send(toSlave, job, strlen(job));
-	}else{
+	} else {
 		printf("Error: %d\n", ret[0]);
 	}
-
-	// send(toSlave, getpid());
 
 }
 
@@ -214,30 +229,25 @@ int start(struct Queue * q) {
 	int status;
 
 
-	for (int i = 0; i < SLAVES; ++i) {
+	// First set up pipes for each slave.
+	for (int i = 0; i < SLAVES; ++i)
 		setupSlavePipe(i);
-	}
 
 
+	// Get it forking...
 	for (i = 0; i < SLAVES; i++) {
-
 		if ((pid = fork()) == -1) {
 			// Fork returned error.
 			perror("Fork error.");
 			exit(EXIT_FAILURE);
 
 		} else if (pid == 0) {
-			// This is the child.
-			// sleep(i);
-			// printf("Child (%d): %d\n", i + 1, getpid());
-			// sleep(i);
-			startSlavePipe(i);
+			// This is the slave.
+			startSlave(i);
 			exit(EXIT_SUCCESS);
 		} else {
-			// This is the parent.
-			// sleep(10);
-			// printf("Master (%d): %d\n", i + 1, getpid());
-			startMasterPipe(i);
+			// This is the master.
+			startMaster(i);
 		}
 	}
 
