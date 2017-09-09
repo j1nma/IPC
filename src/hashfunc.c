@@ -28,21 +28,6 @@
 int toMasterDescriptors[SLAVES][2];
 int toSlavesDescriptors[SLAVES][2];
 
-
-
-void* create_shared_memory(size_t size) {
-	// Our memory buffer will be readable and writable:
-	int protection = PROT_READ | PROT_WRITE;
-
-	// The buffer will be shared (meaning other processes can access it), but
-	// anonymous (meaning third-party processes cannot obtain an address for it),
-	// so only this process and its children will be able to use it:
-	int visibility = MAP_ANONYMOUS | MAP_SHARED;
-
-	// The remaining parameters to `mmap()` are not important for this use case,
-	// but the manpage for `mmap` explains their purpose.
-	return mmap(NULL, size, protection, visibility, 0, 0);
-}
 // https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 
 char* concat(const char *s1, const char *s2) {
@@ -108,7 +93,7 @@ void loadFiles(char* path, struct Queue *q) {
 
 void send(int descriptor[2], char* data, int length) {
 
-	// This function is basiclly that that was given to us as an example.
+	// This function is basically the one that was given to us as an example.
 	int w = length;
 	int written = 0;
 	int fd;
@@ -128,7 +113,7 @@ void send(int descriptor[2], char* data, int length) {
 
 char* recieve(int descriptor[], int pid) {
 
-	// This function is basiclly that that was given to us as an example.
+	// This function is basically the one that was given to us as an example.
 	int r = 0;
 	int fd;
 	int size = 1024;
@@ -162,10 +147,10 @@ void setupSlavePipe(int i) {
 	int toMaster[2];
 
 	if (pipe(toSlave) != 0) {
-		printf("Couldnt create pipe.\n");
+		printf("Could not create master->slave pipe.\n");
 	}
 	if (pipe(toMaster) != 0) {
-		printf("Couldnt create pipe.\n");
+		printf("Could not create slave->master pipe.\n");
 	}
 
 	int k;
@@ -242,7 +227,7 @@ int start(struct Queue * q) {
 			exit(EXIT_FAILURE);
 
 		} else if (pid == 0) {
-			// This is the slave.
+			// This is a slave.
 			startSlave(i);
 			exit(EXIT_SUCCESS);
 		} else {
@@ -251,14 +236,14 @@ int start(struct Queue * q) {
 		}
 	}
 
-	// The program only gets here if its the parent/master.
+	// The program only gets here if it's the parent/master.
 	while (-1 != wait(&status));
 
 	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
 
 
-	printf("Termino el padre.\n");
+	printf("Terminó el padre.\n");
 	exit(EXIT_SUCCESS);
 }
 

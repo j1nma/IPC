@@ -83,14 +83,14 @@ int main() {
 	/* Register signal and signal handler */
 	signal(SIGINT, signal_callback_handler);
 
-	/* Creating the shared memory object */
+	/* Opening existing shared memory object (created by master) */
 	shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
 	if (shmfd < 0) {
-		perror("Could not create shared memory.");
+		perror("Could not open/create shared memory.");
 		exit(1);
 	}
 
-	fprintf(stderr, "Created shared memory object %s\n", SHMOBJ_PATH);
+	fprintf(stderr, "Created/opened shared memory object %s\n", SHMOBJ_PATH);
 
 	/* Adjusting mapped file size */
 	ftruncate(shmfd, shared_seg_size);
@@ -100,7 +100,7 @@ int main() {
 	 */
 	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, SEMINIT);
 
-	/* Requesting the shared segment  */
+	/* Requesting the shared segment */
 	shared_msg = (struct shared_data *) mmap(NULL, shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 	if (shared_msg == NULL) {
 		perror("Could not obtain shared segment.");
