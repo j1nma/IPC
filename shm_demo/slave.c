@@ -46,21 +46,21 @@ void signalCallbackHandler(int signum) {
 	* Semaphore unlink: Remove a named semaphore  from the system.
 	*/
 	if (shm_unlink(SHMOBJ_PATH) < 0) {
-		perror("Could not unlink shared memory.");
+		perror("Could not unlink shared memory");
 	}
 
 	/**
 	 * Semaphore Close: Close a named semaphore
 	 */
 	if (sem_close(sem_id) < 0) {
-		perror("Could not close semaphore.");
+		perror("Could not close semaphore");
 	}
 
 	/**
 	 * Semaphore unlink: Remove a named semaphore from the system.
 	 */
 	if (sem_unlink(SEMNAME) < 0) {
-		perror("Could not unlink semaphore.");
+		perror("Could not unlink semaphore");
 	}
 
 	// Terminate program

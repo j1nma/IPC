@@ -46,21 +46,21 @@ void signalCallbackHandler(int signum) {
 	* Semaphore unlink: Remove a named semaphore  from the system.
 	*/
 	if (shm_unlink(SHMOBJ_PATH) < 0) {
-		perror("Could not unlink shared memory.");
+		perror("Could not unlink shared memory");
 	}
 
 	/**
 	 * Semaphore Close: Close a named semaphore
 	 */
 	if (sem_close(sem_id) < 0) {
-		perror("Could not close semaphore.");
+		perror("Could not close semaphore");
 	}
 
 	/**
 	 * Semaphore unlink: Remove a named semaphore from the system.
 	 */
 	if (sem_unlink(SEMNAME) < 0) {
-		perror("Could not unlink semaphore.");
+		perror("Could not unlink semaphore");
 	}
 
 	// Terminate program
@@ -75,7 +75,7 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 	/* Creating the shared memory object */
 	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
 	if (*shmfd < 0) {
-		perror("Could not create shared memory.");
+		perror("Could not create shared memory");
 		exit(1);
 	}
 
@@ -88,7 +88,7 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 	/* Requesting the shared segment  */
 	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
 	if (*shared_msg == NULL) {
-		perror("Could not obtain shared segment.");
+		perror("Could not obtain shared segment");
 		exit(1);
 	}
 }
@@ -134,7 +134,7 @@ int main() {
 
 
 	if (shm_unlink(SHMOBJ_PATH) != 0) {
-		perror("Could not unlink shared segment.");
+		perror("Could not unlink shared segment");
 		exit(1);
 	}
 
@@ -143,7 +143,7 @@ int main() {
 	}
 
 	if (sem_unlink(SEMNAME) < 0) {
-		perror("Could not unlink semaphore.");
+		perror("Could not unlink semaphore");
 	}
 
 	return 0;

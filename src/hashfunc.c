@@ -18,7 +18,7 @@
 #include "macros.h"
 #include "hashfunc.h"
 
-#define SLAVES 5
+#define SLAVES 6
 #define TRUE 1
 #define FALSE 0
 
@@ -56,21 +56,21 @@ void signalCallbackHandler(int signum) {
 	* Semaphore unlink: Remove a named semaphore  from the system.
 	*/
 	if (shm_unlink(SHMOBJ_PATH) < 0) {
-		perror("Could not unlink shared memory.");
+		perror("Could not unlink shared memory");
 	}
 
 	/**
 	 * Semaphore Close: Close a named semaphore
 	 */
 	if (sem_close(sem_id) < 0) {
-		perror("Could not close semaphore.");
+		perror("Could not close semaphore");
 	}
 
 	/**
 	 * Semaphore unlink: Remove a named semaphore from the system.
 	 */
 	if (sem_unlink(SEMNAME) < 0) {
-		perror("Could not unlink semaphore.");
+		perror("Could not unlink semaphore");
 	}
 
 	// Terminate program
@@ -85,7 +85,7 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 	/* Creating the shared memory object */
 	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
 	if (*shmfd < 0) {
-		perror("Could not create shared memory.");
+		perror("Could not create shared memory");
 		exit(1);
 	}
 
@@ -98,7 +98,7 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 	/* Requesting the shared segment  */
 	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
 	if (*shared_msg == NULL) {
-		perror("Could not obtain shared segment.");
+		perror("Could not obtain shared segment");
 		exit(1);
 	}
 }
@@ -106,7 +106,7 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 void terminateSemaphore() {
 
 	if (shm_unlink(SHMOBJ_PATH) != 0) {
-		perror("Could not unlink shared segment.");
+		perror("Could not unlink shared segment");
 		exit(1);
 	}
 
@@ -115,7 +115,7 @@ void terminateSemaphore() {
 	}
 
 	if (sem_unlink(SEMNAME) < 0) {
-		perror("Could not unlink semaphore.");
+		perror("Could not unlink semaphore");
 	}
 
 }
@@ -283,10 +283,6 @@ void startSlave(int i) {
 		printf("Could not calculate md5 of %s.\n", ret);
 	}
 
-	//  else {
-	// 	printf("%s's md5 is %s.\n\n", ret, md5);
-	// }
-
 	sem_wait(sem_id);
 
 	int aux = shared_msg->last;
@@ -296,7 +292,6 @@ void startSlave(int i) {
 		shared_msg->last++;
 	}
 
-	// sleep(2);
 	sem_post(sem_id);
 
 }
@@ -321,7 +316,11 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 
 		struct QNode * qnode = deQueue(q);
 
-		// char *job = "/Dev/Data/Testy/SO/So/SOSOSO/archivo.ai";
+		if (qnode == NULL) {
+			printf("%s\n", "No more files to process.");
+			return;
+		}
+
 		char *job = qnode->key;
 
 		send(toSlave, job, strlen(job));
@@ -356,11 +355,17 @@ int start(struct Queue * q) {
 
 	sem_post(sem_id);
 
+	int limit = SLAVES;
+
+	if (SLAVES > q->size) {
+		limit = q->size;
+	}
+
 	// Get it forking...
-	for (i = 0; i < SLAVES; i++) {
+	for (i = 0; i < limit; i++) {
 		if ((pid = fork()) == -1) {
 			// Fork returned error.
-			perror("Fork error.");
+			perror("Fork error");
 			exit(EXIT_FAILURE);
 
 		} else if (pid == 0) {
@@ -389,7 +394,6 @@ int start(struct Queue * q) {
 
 	}
 
-	// sleep(1);
 	sem_post(sem_id);
 
 	terminateSemaphore();
