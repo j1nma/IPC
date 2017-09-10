@@ -12,18 +12,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "include/queue.h"
 #include "include/macros.h"
 
 
-#define SEGMENTSIZE sizeof(sem_t)
-#define SEGMENTPERM 0666 // All users can read and write but not execute.
-
 #define SEMNAME "semy"
-
 #define SHMOBJ_PATH "/itba.so.grupo3.tp1"
-
-#define SEMINIT 1
 
 // Compile either with -lrt or -lpthread
 
@@ -74,40 +67,39 @@ void signalCallbackHandler(int signum) {
 	exit(signum);
 }
 
-int main() {
-
-	int shmfd;
-	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data *shared_msg;      /* The shared segment, and head of the messages list */
+void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struct shared_data * * shared_msg) {
 
 	/* Register signal and signal handler */
 	signal(SIGINT, signalCallbackHandler);
 
 	/* Creating the shared memory object */
-	shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
-	if (shmfd < 0) {
+	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
+	if (*shmfd < 0) {
 		perror("Could not create shared memory.");
 		exit(1);
 	}
 
-	fprintf(stderr, "Created shared memory object %s\n", SHMOBJ_PATH);
-
 	/* Adjusting mapped file size */
-	ftruncate(shmfd, shared_seg_size);
+	ftruncate(*shmfd, *shared_seg_size);
 
-	/**
-	 * Semaphore open. Create the semaphore if it does not already exist. Initialized to 1.
-	 */
-	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, SEMINIT);
+	/* Semaphore open. Create the semaphore if it does not already exist. Initialized to 1. */
+	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
 
 	/* Requesting the shared segment  */
-	shared_msg = (struct shared_data *) mmap(NULL, shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
-	if (shared_msg == NULL) {
-		perror("Could not obtaine shared segment.");
+	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
+	if (*shared_msg == NULL) {
+		perror("Could not obtain shared segment.");
 		exit(1);
 	}
+}
 
-	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", shared_seg_size);
+int main() {
+
+	int shmfd;
+	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
+	struct shared_data *shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );   /* The shared segment, and head of the messages list */
+
+	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
 
 	sem_wait(sem_id);
 
@@ -115,7 +107,7 @@ int main() {
 
 	sem_post(sem_id);
 
-	while (1) {
+	while(1) {
 
 		// sem wait blocks; sem trywait will fail rather than block.
 
@@ -124,8 +116,7 @@ int main() {
 		another process or thread blocked in a sem_wait(3) call will be woken
 		up and proceed to lock the semaphore. */
 
-		sleep(2);
-		printf("Waiting \n");
+		// printf("Waiting \n");
 		sem_wait(sem_id);
 
 		printf("Locked, About to sleep \n");
@@ -133,11 +124,11 @@ int main() {
 		for (i = 0; i < shared_msg->last; i++) {
 			printf("%s\n", shared_msg->buffer[i]);
 		}
-		
-		sleep(3);
+
+		sleep(4);
 		sem_post(sem_id);
 
-		printf("Posting \n");
+		// printf("Posting \n");
 
 	}
 

@@ -9,12 +9,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <sys/mman.h>
+#include <signal.h>
+#include <semaphore.h>
 
 #include "macros.h"
 #include "hashfunc.h"
-
 
 #define SLAVES 5
 #define TRUE 1
@@ -27,6 +29,96 @@
 
 int toMasterDescriptors[SLAVES][2];
 int toSlavesDescriptors[SLAVES][2];
+
+
+#define SEMNAME "semy"
+#define SHMOBJ_PATH "/itba.so.grupo3.tp1"
+
+/* Semaphore declaration */
+sem_t * sem_id;
+
+struct shared_data {
+	char buffer[1024][MD5_LEN + 1]; /* +1 for null terminated string. */
+	int last;
+};
+
+/**
+ * Signal Handler for CTRL^C
+ * We need this signal handler because some times when
+ * manully kill the process by pressing CTRL+C, that time
+ * semaphore should also Closed and unlinked. If not Next time
+ * when you run the same program, it will use same semaphore
+ * and will not work as expected.
+**/
+void signalCallbackHandler(int signum) {
+
+	/**
+	* Semaphore unlink: Remove a named semaphore  from the system.
+	*/
+	if (shm_unlink(SHMOBJ_PATH) < 0) {
+		perror("Could not unlink shared memory.");
+	}
+
+	/**
+	 * Semaphore Close: Close a named semaphore
+	 */
+	if (sem_close(sem_id) < 0) {
+		perror("Could not close semaphore.");
+	}
+
+	/**
+	 * Semaphore unlink: Remove a named semaphore from the system.
+	 */
+	if (sem_unlink(SEMNAME) < 0) {
+		perror("Could not unlink semaphore.");
+	}
+
+	// Terminate program
+	exit(signum);
+}
+
+void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struct shared_data * * shared_msg) {
+
+	/* Register signal and signal handler */
+	signal(SIGINT, signalCallbackHandler);
+
+	/* Creating the shared memory object */
+	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
+	if (*shmfd < 0) {
+		perror("Could not create shared memory.");
+		exit(1);
+	}
+
+	/* Adjusting mapped file size */
+	ftruncate(*shmfd, *shared_seg_size);
+
+	/* Semaphore open. Create the semaphore if it does not already exist. Initialized to 1. */
+	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
+
+	/* Requesting the shared segment  */
+	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
+	if (*shared_msg == NULL) {
+		perror("Could not obtain shared segment.");
+		exit(1);
+	}
+}
+
+void terminateSemaphore() {
+
+	if (shm_unlink(SHMOBJ_PATH) != 0) {
+		perror("Could not unlink shared segment.");
+		exit(1);
+	}
+
+	if (sem_close(sem_id) < 0) {
+		perror("Could not close semaphore");
+	}
+
+	if (sem_unlink(SEMNAME) < 0) {
+		perror("Could not unlink semaphore.");
+	}
+
+}
 
 // https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 
@@ -177,14 +269,41 @@ void startSlave(int i) {
 	// After sending, wait for a job directory.
 	char* ret = recieve(toSlave, getpid());
 
-
 	printf("(%i) Got job: %s\n", getpid(), ret);
+
+	int shmfd;
+	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
+	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
+
+	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
+
+	char md5[MD5_LEN + 1];
+
+	if (!calculateMD5(ret, md5)) {
+		printf("Could not calculate md5 of %s.\n", ret);
+	}
+
+	//  else {
+	// 	printf("%s's md5 is %s.\n\n", ret, md5);
+	// }
+
+	sem_wait(sem_id);
+
+	int aux = shared_msg->last;
+
+	if (aux < 1024) {
+		strcpy(shared_msg->buffer[++aux], md5);
+		shared_msg->last++;
+	}
+
+	// sleep(2);
+	sem_post(sem_id);
 
 }
 
 
 
-void startMaster(int i) {
+void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 
 
 	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
@@ -199,8 +318,14 @@ void startMaster(int i) {
 
 	if (ret[0] == SLAVE_READY) {
 		printf("Slave sent ready, sending job...\n");
-		char *job = "/Dev/Data/Testy/SO/So/SOSOSO/archivo.ai";
+
+		struct QNode * qnode = deQueue(q);
+
+		// char *job = "/Dev/Data/Testy/SO/So/SOSOSO/archivo.ai";
+		char *job = qnode->key;
+
 		send(toSlave, job, strlen(job));
+
 	} else {
 		printf("Error: %d\n", ret[0]);
 	}
@@ -219,6 +344,18 @@ int start(struct Queue * q) {
 		setupSlavePipe(i);
 
 
+	int shmfd;
+	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
+	struct shared_data *shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );   /* The shared segment, and head of the messages list */
+
+	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
+
+	sem_wait(sem_id);
+
+	shared_msg->last = 0;
+
+	sem_post(sem_id);
+
 	// Get it forking...
 	for (i = 0; i < SLAVES; i++) {
 		if ((pid = fork()) == -1) {
@@ -232,7 +369,7 @@ int start(struct Queue * q) {
 			exit(EXIT_SUCCESS);
 		} else {
 			// This is the master.
-			startMaster(i);
+			startMaster(i, q, shared_msg);
 		}
 	}
 
@@ -242,6 +379,20 @@ int start(struct Queue * q) {
 	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
 
+	sem_wait(sem_id);
+
+	int j;
+
+	for (j = 0; j <= shared_msg->last; j++) {
+		printf("%s", shared_msg->buffer[j]);
+		printf("\n");
+
+	}
+
+	// sleep(1);
+	sem_post(sem_id);
+
+	terminateSemaphore();
 
 	printf("Terminó el padre.\n");
 	exit(EXIT_SUCCESS);

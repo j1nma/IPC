@@ -12,18 +12,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "include/queue.h"
 #include "include/macros.h"
 
 
-#define SEGMENTSIZE sizeof(sem_t)
-#define SEGMENTPERM 0666 // All users can read and write but not execute.
-
 #define SEMNAME "semy"
-
 #define SHMOBJ_PATH "/itba.so.grupo3.tp1"
-
-#define SEMINIT 1
 
 // Compile either with -lrt or -lpthread
 
@@ -87,13 +80,11 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 		exit(1);
 	}
 
-	fprintf(stderr, "Created/opened shared memory object %s\n", SHMOBJ_PATH);
-
 	/* Adjusting mapped file size */
 	ftruncate(*shmfd, *shared_seg_size);
 	
 	/* Semaphore open. Create the semaphore if it does not already exist. Initialized to 1. */
-	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, SEMINIT);
+	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
 
 	/* Requesting the shared segment */
 	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
@@ -102,23 +93,18 @@ void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struc
 		exit(1);
 	}
 
-	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", *shared_seg_size);
-
-
-
 }
 
 int main() {
 
 	int shmfd;
 	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );      /* The shared segment, and head of the messages list */
+	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
 
 	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
 
-	while (1) {
+	while(1) {
 
-		sleep(2);
 		printf("Waiting \n");
 		sem_wait(sem_id);
 		printf("Locked, About to sleep \n");
