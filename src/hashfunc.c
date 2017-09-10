@@ -18,7 +18,7 @@
 #include "macros.h"
 #include "hashfunc.h"
 
-#define SLAVES 6
+#define SLAVES 5
 #define TRUE 1
 #define FALSE 0
 
@@ -40,6 +40,7 @@ sem_t * sem_id;
 struct shared_data {
 	char buffer[1024][MD5_LEN + 1]; /* +1 for null terminated string. */
 	int last;
+	struct Queue * queue;
 };
 
 /**
@@ -77,26 +78,30 @@ void signalCallbackHandler(int signum) {
 	exit(signum);
 }
 
-void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struct shared_data * * shared_msg) {
+void prepareSharedMemoryWithSemaphores(struct shared_data * * shared_msg) {
 
 	/* Register signal and signal handler */
 	signal(SIGINT, signalCallbackHandler);
 
+
+	int shmfd;
+	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
+
 	/* Creating the shared memory object */
-	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
-	if (*shmfd < 0) {
+	shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
+	if (shmfd < 0) {
 		perror("Could not create shared memory");
 		exit(1);
 	}
 
 	/* Adjusting mapped file size */
-	ftruncate(*shmfd, *shared_seg_size);
+	ftruncate(shmfd, shared_seg_size);
 
 	/* Semaphore open. Create the semaphore if it does not already exist. Initialized to 1. */
 	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
 
 	/* Requesting the shared segment  */
-	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
+	*shared_msg = (struct shared_data *) mmap(NULL, shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 	if (*shared_msg == NULL) {
 		perror("Could not obtain shared segment");
 		exit(1);
@@ -181,11 +186,9 @@ void loadFiles(char* path, struct Queue *q) {
 	}
 }
 
-
-
 void send(int descriptor[2], char* data, int length) {
 
-	// This function is basically the one that was given to us as an example.
+	// This function is basically the one that was given to us in class as an example.
 	int w = length;
 	int written = 0;
 	int fd;
@@ -205,7 +208,7 @@ void send(int descriptor[2], char* data, int length) {
 
 char* recieve(int descriptor[], int pid) {
 
-	// This function is basically the one that was given to us as an example.
+	// This function is basically the one that was given to us in class as an example.
 	int r = 0;
 	int fd;
 	int size = 1024;
@@ -229,9 +232,6 @@ char* recieve(int descriptor[], int pid) {
 	return readBuffer;
 }
 
-
-
-
 void setupSlavePipe(int i) {
 
 	//Creating both file descriptors. One master->slave and the other slave->master.
@@ -250,8 +250,6 @@ void setupSlavePipe(int i) {
 	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
 }
 
-
-
 void startSlave(int i) {
 
 	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
@@ -260,6 +258,10 @@ void startSlave(int i) {
 	int toMaster[2];
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
+
+	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
+	prepareSharedMemoryWithSemaphores(&shared_msg);
+
 
 	// Sending the SLAVE_READY to notify the master that the slave is ready for work.
 	char data[1];
@@ -270,12 +272,6 @@ void startSlave(int i) {
 	char* ret = recieve(toSlave, getpid());
 
 	printf("(%i) Got job: %s\n", getpid(), ret);
-
-	int shmfd;
-	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
-
-	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
 
 	char md5[MD5_LEN + 1];
 
@@ -300,7 +296,6 @@ void startSlave(int i) {
 
 void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 
-
 	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
 	int k;
 	int toSlave[2];
@@ -314,7 +309,7 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 	if (ret[0] == SLAVE_READY) {
 		printf("Slave sent ready, sending job...\n");
 
-		struct QNode * qnode = deQueue(q);
+		struct QNode * qnode = deQueue(shared_msg->queue);
 
 		if (qnode == NULL) {
 			printf("%s\n", "No more files to process.");
@@ -331,38 +326,65 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 
 }
 
+// struct Queue * assignJobQueue(int jobsPerSlave, struct QNode * current) {
+
+// 	struct Queue * slaveQueue = createQueue();
+
+// 	int l;
+// 	for (l = 0 ; l < jobsPerSlave && current != NULL ; l++) {
+// 		enQueue(slaveQueue, current->key);
+// 		current = current->next;
+// 	}
+
+// 	return slaveQueue;
+// }
+
+struct BNode {
+	char* md5;
+	char* fileName;
+};
+
 int start(struct Queue * q) {
+
+	// No files to process.
+	if (q->size == 0) {
+		exit(EXIT_SUCCESS);
+	}
+
 
 	int i;
 	pid_t pid;
 	int status;
-
 
 	// First set up pipes for each slave.
 	for (int i = 0; i < SLAVES; ++i)
 		setupSlavePipe(i);
 
 
-	int shmfd;
-	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data *shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );   /* The shared segment, and head of the messages list */
-
-	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
-
-	sem_wait(sem_id);
-
-	shared_msg->last = 0;
-
-	sem_post(sem_id);
-
-	int limit = SLAVES;
+	// Set the number of slaves for the forking loop.
+	int slaves = SLAVES;
 
 	if (SLAVES > q->size) {
-		limit = q->size;
+		slaves = q->size;
 	}
 
+
+	// int jobsPerSlave = q->size / slaves;
+
+	// struct QNode * aux = q->front;
+
+	// assignJobQueue(jobsPerSlave,aux);
+
+	struct shared_data *shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );   /* The shared segment, and head of the messages list */
+	prepareSharedMemoryWithSemaphores(&shared_msg);
+
+	sem_wait(sem_id);
+	shared_msg->last = 0;
+	shared_msg->queue = q;
+	sem_post(sem_id);
+
 	// Get it forking...
-	for (i = 0; i < limit; i++) {
+	for (i = 0; i < slaves; i++) {
 		if ((pid = fork()) == -1) {
 			// Fork returned error.
 			perror("Fork error");
@@ -371,15 +393,18 @@ int start(struct Queue * q) {
 		} else if (pid == 0) {
 			// This is a slave.
 			startSlave(i);
+
 			exit(EXIT_SUCCESS);
 		} else {
 			// This is the master.
 			startMaster(i, q, shared_msg);
+
 		}
 	}
 
 	// The program only gets here if it's the parent/master.
 	while (-1 != wait(&status));
+	// No more children of the master remaining.
 
 	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
@@ -387,6 +412,7 @@ int start(struct Queue * q) {
 	sem_wait(sem_id);
 
 	int j;
+
 
 	for (j = 0; j <= shared_msg->last; j++) {
 		printf("%s", shared_msg->buffer[j]);

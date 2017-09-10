@@ -1,11 +1,19 @@
+/**
+ * Based on https://stackoverflow.com/a/3395752/1815727
+ * Credit goes to the user that answered that question.
+
+ * accessed by j1nma, 1 Sep. 2017
+ */
+
 #include <stdio.h>
 #include <ctype.h>
+#include <strings.h>
 #include "macros.h"
 #include "hashfunc.h"
 
 int calculateMD5(char *file_name, char *md5_sum) {
 
-#define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
+#define MD5SUM_CMD_FMT "md5sum \"%." STR(PATH_LEN) "s\" 2>/dev/null"
 	char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
 	sprintf(cmd, MD5SUM_CMD_FMT, file_name);
 #undef MD5SUM_CMD_FMT
