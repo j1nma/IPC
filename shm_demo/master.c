@@ -47,7 +47,7 @@ struct shared_data {
  * when you run the same program, it will use same semaphore
  * and will not work as expected.
 **/
-void signal_callback_handler(int signum) {
+void signalCallbackHandler(int signum) {
 
 	/**
 	* Semaphore unlink: Remove a named semaphore  from the system.
@@ -81,7 +81,7 @@ int main() {
 	struct shared_data *shared_msg;      /* The shared segment, and head of the messages list */
 
 	/* Register signal and signal handler */
-	signal(SIGINT, signal_callback_handler);
+	signal(SIGINT, signalCallbackHandler);
 
 	/* Creating the shared memory object */
 	shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
@@ -137,7 +137,7 @@ int main() {
 		sleep(3);
 		sem_post(sem_id);
 
-		printf("posting \n");
+		printf("Posting \n");
 
 	}
 

@@ -47,7 +47,7 @@ struct shared_data {
  * when you run the same program, it will use same semaphore
  * and will not work as expected.
 **/
-void signal_callback_handler(int signum) {
+void signalCallbackHandler(int signum) {
 
 	/**
 	* Semaphore unlink: Remove a named semaphore  from the system.
@@ -74,18 +74,15 @@ void signal_callback_handler(int signum) {
 	exit(signum);
 }
 
-int main() {
-
-	int shmfd;
-	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
-	struct shared_data * shared_msg;      /* The shared segment, and head of the messages list */
+void prepareSharedMemoryWithSemaphores(int * shmfd, int * shared_seg_size, struct shared_data * * shared_msg) {
 
 	/* Register signal and signal handler */
-	signal(SIGINT, signal_callback_handler);
+	signal(SIGINT, signalCallbackHandler);
+
 
 	/* Opening existing shared memory object (created by master) */
-	shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
-	if (shmfd < 0) {
+	*shmfd = shm_open(SHMOBJ_PATH, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
+	if (*shmfd < 0) {
 		perror("Could not open/create shared memory.");
 		exit(1);
 	}
@@ -93,21 +90,31 @@ int main() {
 	fprintf(stderr, "Created/opened shared memory object %s\n", SHMOBJ_PATH);
 
 	/* Adjusting mapped file size */
-	ftruncate(shmfd, shared_seg_size);
-
-	/**
-	 * Semaphore open. Create the semaphore if it does not already exist. Initialized to 1.
-	 */
+	ftruncate(*shmfd, *shared_seg_size);
+	
+	/* Semaphore open. Create the semaphore if it does not already exist. Initialized to 1. */
 	sem_id = sem_open(SEMNAME, O_CREAT, S_IRUSR | S_IWUSR, SEMINIT);
 
 	/* Requesting the shared segment */
-	shared_msg = (struct shared_data *) mmap(NULL, shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
-	if (shared_msg == NULL) {
+	*shared_msg = (struct shared_data *) mmap(NULL, *shared_seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, *shmfd, 0);
+	if (*shared_msg == NULL) {
 		perror("Could not obtain shared segment.");
 		exit(1);
 	}
 
-	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", shared_seg_size);
+	fprintf(stderr, "Shared memory segment allocated correctly (%d bytes).\n", *shared_seg_size);
+
+
+
+}
+
+int main() {
+
+	int shmfd;
+	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
+	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );      /* The shared segment, and head of the messages list */
+
+	prepareSharedMemoryWithSemaphores(&shmfd, &shared_seg_size, &shared_msg);
 
 	while (1) {
 
@@ -128,7 +135,7 @@ int main() {
 		sleep(2);
 		sem_post(sem_id);
 
-		printf("posting \n");
+		printf("Posting \n");
 
 	}
 
