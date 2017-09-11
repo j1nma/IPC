@@ -32,64 +32,6 @@ int toSlavesDescriptors[SLAVES][2];
 /* Semaphore declaration */
 sem_t * sem_id;
 
-// https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
-
-char* concat(const char *s1, const char *s2) {
-	char *result = malloc(strlen(s1) + strlen(s2) + 1);
-
-	if (result == NULL) {
-		printf("Memory allocation failed.");
-		return NULL;
-	}
-
-	strcpy(result, s1);
-	strcat(result, s2);
-	return result;
-}
-
-// https://stackoverflow.com/questions/4553012/checking-if-a-file-is-a-directory-or-just-a-file
-
-int is_regular_file(const char *path) {
-	struct stat path_stat;
-
-	if (stat(path, &path_stat) != 0)
-		return 0;
-
-	return S_ISREG(path_stat.st_mode);
-}
-
-void loadFiles(char* path, struct Queue *q) {
-	DIR* dir;
-	struct dirent *ent;
-
-	if ((dir = opendir(path)) != NULL) {
-
-		while (( ent = readdir(dir)) != NULL) {
-
-			int isCurrent = !strcmp(ent->d_name, ".");
-			int isFaga = !strcmp(ent->d_name, "..");
-
-			if (!isCurrent && !isFaga) {
-
-				char* current = concat(concat(path, "/"), ent->d_name);
-				if (current == NULL) {
-					closedir(dir);
-					return;
-				}
-
-				if (is_regular_file(current)) {
-
-					enQueue(q, current);
-				}
-
-				loadFiles(current, q);
-			}
-		}
-
-		closedir(dir);
-	}
-}
-
 void send(int descriptor[2], char* data, int length) {
 
 	// This function is basically the one that was given to us in class as an example.
