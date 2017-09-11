@@ -19,7 +19,7 @@
 #include "hashfunc.h"
 #include "shmsema.h"
 
-#define SLAVES 5
+#define SLAVES 2
 #define TRUE 1
 #define FALSE 0
 
@@ -28,6 +28,7 @@
 
 int toMasterDescriptors[SLAVES][2];
 int toSlavesDescriptors[SLAVES][2];
+int toMaster[2];
 
 /* Semaphore declaration */
 sem_t * sem_id;
@@ -61,7 +62,7 @@ void send(int descriptor[2], char* data, int length) {
 
 }
 
-char* recieve(int descriptor[], int pid) {
+char* recieve(int descriptor[]) {
 
 	// This function is basically the one that was given to us in class as an example.
 	int r = 0;
@@ -77,9 +78,6 @@ char* recieve(int descriptor[], int pid) {
 
 	fd = descriptor[0];
 
-	// printf("fd %d\n", fd);
-	// fcntl(fd, F_SETFL, O_NONBLOCK);
-	close(descriptor[1]);
 	while (size > 0 && (r = read(fd, readPtr, size))) {
 		readPtr += r;
 		size -= r;
@@ -88,7 +86,7 @@ char* recieve(int descriptor[], int pid) {
 	readBuffer[readPtr - readBuffer] = '\0';
 
 	// if (descriptor[0] != -1) {
-	// 	close(descriptor[0]);
+	// close(descriptor[0]);
 	// 	descriptor[0] = -1;
 	// }
 
@@ -99,18 +97,19 @@ void setupSlavePipe(int i) {
 
 	//Creating both file descriptors. One master->slave and the other slave->master.
 	int toSlave[2];
-	int toMaster[2];
+	// int toMaster[2];
 
 	if (pipe(toSlave) != 0) {
 		printf("Could not create master->slave pipe.\n");
 	}
-	if (pipe(toMaster) != 0) {
-		printf("Could not create slave->master pipe.\n");
-	}
+
+	// if (pipe(toMaster) != 0) {
+	// 	printf("Could not create slave->master pipe.\n");
+	// }
 
 	int k;
 	for (k = 0; k < 2; k++) toSlavesDescriptors[i][k] = toSlave[k];
-	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
+	// for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
 
 }
 
@@ -119,77 +118,67 @@ void startSlave(int i) {
 	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
 	int k;
 	int toSlave[2];
-	int toMaster[2];
-	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
+	// int toMaster[2];
+	// for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 
 	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
 	prepareSharedMemoryWithSemaphores(sem_id, &shared_msg);
 
-	char* ret = "smt";
+	char* ret;
 	char data[1];
 	data[0] = SLAVE_READY;
 
+	// Sending the SLAVE_READY to notify the master that the slave is ready for work.
+	// send(toMaster, data, 1);
+
+	write(toMaster[1], data + 0, 1);
 	close(toMaster[1]);
 
-	// do {
-	while (ret[0] != '\0') {
+	// After sending, wait for a job directory.
+	// close(toSlave[1]);
+	ret = recieve(toSlave);
+	// close(toSlave[0]);
 
-		// Sending the SLAVE_READY to notify the master that the slave is ready for work.
-		send(toMaster, data, 1);
-		// printf("write: %d\n", write(toMaster[1], data + 0, 1));
-		// close(toMaster[1]);
+	// printf("read %zd\n", read(toSlave[0], ret, sizeof(ret)));
 
-		// After sending, wait for a job directory.
-		ret = recieve(toSlave, getpid());
+	// printf("(%i) Got job: %s\n", getpid(), ret);
 
-		printf("(%i) Got job: %s\n", getpid(), ret);
+	// char md5[MD5_LEN + 1];
 
-		char md5[MD5_LEN + 1];
+	// if (!calculateMD5(ret, md5)) {
+	// 	printf("Could not calculate md5 of %s.\n", ret);
+	// }
 
-		if (!calculateMD5(ret, md5)) {
-			printf("Could not calculate md5 of %s.\n", ret);
-		}
+	// sem_wait(sem_id);
 
-		sem_wait(sem_id);
+	// int aux = shared_msg->last;
 
-		int aux = shared_msg->last;
+	// if (aux < 1024) {
+	// 	strcpy(shared_msg->buffer[++aux], md5);
+	// 	shared_msg->last++;
+	// }
 
-		if (aux < 1024) {
-			strcpy(shared_msg->buffer[++aux], md5);
-			shared_msg->last++;
-		}
-
-		sem_post(sem_id);
-		// }
-
-	}
+	// sem_post(sem_id);
 
 	// } while (ret[0] != '\0');
 
 }
 
-void startMaster(int i, struct Queue * q, struct shared_data * shared_msg) {
+void startMaster(int slaves, struct shared_data * shared_msg) {
 
-	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
+	// // Get the file descriptor for both pipes. One master->slave and the other slave->master.
 	int k;
-	int toSlave[2];
-	int toMaster[2];
-	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
-	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
+	// int toSlave[2];
 
-	char* ret;
+	// for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
+	// // for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
-	do {
+	// close(toMaster[1]);
 
-		// while (q->size) {
+	for (k = 0; k < slaves; k++) {
 
-		close(toMaster[1]);
-		ret = recieve(toMaster, getpid());
-
-		// if (ret[0] == SLAVE_READY) {
-
-		printf("Slave sent ready, sending job...\n");
+		// ret = recieve(toMaster, getpid());
 
 		struct QNode * qnode = deQueue(shared_msg->queue);
 
@@ -198,16 +187,14 @@ void startMaster(int i, struct Queue * q, struct shared_data * shared_msg) {
 			return;
 		}
 
-		char *job = qnode->key;
+		char * job = qnode->key;
 
-		send(toSlave, job, strlen(job));
-		close(toSlave[1]);
+		// send(toSlavesDescriptors[k], job, strlen(job));
 
-		// }
+		write(toSlavesDescriptors[k][1], job, strlen(job));
+		close(toSlavesDescriptors[k][1]);
 
-		// }
-
-	} while (ret[0] != SLAVE_READY);
+	}
 
 }
 
@@ -215,6 +202,7 @@ int start(struct Queue * q) {
 
 	// No files to process.
 	if (q->size == 0) {
+		printf("%s\n", "No files to process.");
 		exit(EXIT_SUCCESS);
 	}
 
@@ -222,7 +210,13 @@ int start(struct Queue * q) {
 	pid_t pid;
 	int status;
 
-	// First set up pipes for each slave.
+	// Set up pipe for master.
+	int toMaster[2];
+	if (pipe(toMaster) != 0) {
+		printf("Could not create slave->master pipe.\n");
+	}
+
+	// Set up pipes for each slave.
 	for (int i = 0; i < SLAVES; ++i)
 		setupSlavePipe(i);
 
@@ -247,24 +241,25 @@ int start(struct Queue * q) {
 
 	// Get it forking...
 	for (i = 0; i < slaves; i++) {
+
 		if ((pid = fork()) == -1) {
 			// Fork returned error.
+
 			perror("Fork error");
 			exit(EXIT_FAILURE);
 
 		} else if (pid == 0) {
 			// This is a slave.
 
+			printf("This is %d\n", getpid());
+			close(toSlavesDescriptors[i][0]);
 			startSlave(i);
 
 			exit(EXIT_SUCCESS);
-		} else {
-			// This is the master.
-
-			startMaster(i, q, shared_msg);
-
 		}
 	}
+
+	startMaster(slaves, shared_msg);
 
 	// The program only gets here if it's the parent/master.
 	while (-1 != wait(&status));
@@ -276,11 +271,9 @@ int start(struct Queue * q) {
 	sem_wait(sem_id);
 
 	int j;
-
 	for (j = 0; j <= shared_msg->last; j++) {
 		printf("%s", shared_msg->buffer[j]);
 		printf("\n");
-
 	}
 
 	sem_post(sem_id);
