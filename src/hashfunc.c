@@ -83,7 +83,6 @@ void prepareSharedMemoryWithSemaphores(struct shared_data * * shared_msg) {
 	/* Register signal and signal handler */
 	signal(SIGINT, signalCallbackHandler);
 
-
 	int shmfd;
 	int shared_seg_size = (1 * sizeof(struct shared_data));   /* Shared segment capable of storing 1 message */
 
@@ -121,6 +120,21 @@ void terminateSemaphore() {
 
 	if (sem_unlink(SEMNAME) < 0) {
 		perror("Could not unlink semaphore");
+	}
+
+}
+
+void closeEverything() {
+
+	int i;
+	for (i = 0; i < SLAVES; i++) {
+		close(toMasterDescriptors[i][0]);
+		close(toMasterDescriptors[i][1]);
+	}
+
+	for (i = 0; i < SLAVES; i++) {
+		close(toSlavesDescriptors[i][0]);
+		close(toSlavesDescriptors[i][1]);
 	}
 
 }
@@ -171,9 +185,6 @@ void loadFiles(char* path, struct Queue *q) {
 				}
 
 				if (is_regular_file(current)) {
-					int fd = open(current, O_RDONLY);
-					struct stat file_stat;
-					fstat(fd, &file_stat);
 
 					enQueue(q, current);
 				}
@@ -193,16 +204,25 @@ void send(int descriptor[2], char* data, int length) {
 	int written = 0;
 	int fd;
 
-	close(descriptor[0]);
+	// if (descriptor[0] != -1) {
+	// close(descriptor[0]);
+	// descriptor[0] = -1;
+	// }
+
 	fd = descriptor[1];
 
+	// printf("fd %d\n", fd);
+
 	while (written < w) {
-		written += write(
-		               fd, data + written, w - written
-		           );
+		written += write(fd, data + written, w - written);
+		// printf("errno %d\n", errno);
+
 	}
 
-	close(descriptor[1]);
+	// if (descriptor[1] != -1) {
+	// close(descriptor[1]);
+	// descriptor[1] = -1;
+	// }
 
 }
 
@@ -215,10 +235,16 @@ char* recieve(int descriptor[], int pid) {
 	char* readBuffer = malloc(sizeof(char) * 1024);
 	char * readPtr = readBuffer;
 
-	close(descriptor[1]);
+	// if (descriptor[1] != -1) {
+	// close(descriptor[1]);
+	// descriptor[1] = -1;
+	// }
+
 	fd = descriptor[0];
 
-
+	// printf("fd %d\n", fd);
+	// fcntl(fd, F_SETFL, O_NONBLOCK);
+	close(descriptor[1]);
 	while (size > 0 && (r = read(fd, readPtr, size))) {
 		readPtr += r;
 		size -= r;
@@ -226,8 +252,10 @@ char* recieve(int descriptor[], int pid) {
 
 	readBuffer[readPtr - readBuffer] = '\0';
 
-
-	close(descriptor[0]);
+	// if (descriptor[0] != -1) {
+	// 	close(descriptor[0]);
+	// 	descriptor[0] = -1;
+	// }
 
 	return readBuffer;
 }
@@ -248,6 +276,7 @@ void setupSlavePipe(int i) {
 	int k;
 	for (k = 0; k < 2; k++) toSlavesDescriptors[i][k] = toSlave[k];
 	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
+
 }
 
 void startSlave(int i) {
@@ -262,39 +291,50 @@ void startSlave(int i) {
 	struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
 	prepareSharedMemoryWithSemaphores(&shared_msg);
 
-
-	// Sending the SLAVE_READY to notify the master that the slave is ready for work.
+	char* ret = "smt";
 	char data[1];
 	data[0] = SLAVE_READY;
-	send(toMaster, data, 1);
 
-	// After sending, wait for a job directory.
-	char* ret = recieve(toSlave, getpid());
+	close(toMaster[1]);
 
-	printf("(%i) Got job: %s\n", getpid(), ret);
+	// do {
+	while (ret[0] != '\0') {
 
-	char md5[MD5_LEN + 1];
+		// Sending the SLAVE_READY to notify the master that the slave is ready for work.
+		send(toMaster, data, 1);
+		// printf("write: %d\n", write(toMaster[1], data + 0, 1));
+		// close(toMaster[1]);
 
-	if (!calculateMD5(ret, md5)) {
-		printf("Could not calculate md5 of %s.\n", ret);
+		// After sending, wait for a job directory.
+		ret = recieve(toSlave, getpid());
+
+		printf("(%i) Got job: %s\n", getpid(), ret);
+
+		char md5[MD5_LEN + 1];
+
+		if (!calculateMD5(ret, md5)) {
+			printf("Could not calculate md5 of %s.\n", ret);
+		}
+
+		sem_wait(sem_id);
+
+		int aux = shared_msg->last;
+
+		if (aux < 1024) {
+			strcpy(shared_msg->buffer[++aux], md5);
+			shared_msg->last++;
+		}
+
+		sem_post(sem_id);
+		// }
+
 	}
 
-	sem_wait(sem_id);
-
-	int aux = shared_msg->last;
-
-	if (aux < 1024) {
-		strcpy(shared_msg->buffer[++aux], md5);
-		shared_msg->last++;
-	}
-
-	sem_post(sem_id);
+	// } while (ret[0] != '\0');
 
 }
 
-
-
-void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
+void startMaster(int i, struct Queue * q, struct shared_data * shared_msg) {
 
 	// Get the file descriptor for both pipes. One master->slave and the other slave->master.
 	int k;
@@ -303,10 +343,17 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
+	char* ret;
 
-	char* ret = recieve(toMaster, getpid());
+	do {
 
-	if (ret[0] == SLAVE_READY) {
+		// while (q->size) {
+
+		close(toMaster[1]);
+		ret = recieve(toMaster, getpid());
+
+		// if (ret[0] == SLAVE_READY) {
+
 		printf("Slave sent ready, sending job...\n");
 
 		struct QNode * qnode = deQueue(shared_msg->queue);
@@ -319,10 +366,13 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 		char *job = qnode->key;
 
 		send(toSlave, job, strlen(job));
+		close(toSlave[1]);
 
-	} else {
-		printf("Error: %d\n", ret[0]);
-	}
+		// }
+
+		// }
+
+	} while (ret[0] != SLAVE_READY);
 
 }
 
@@ -339,10 +389,10 @@ void startMaster(int i, struct Queue * q, struct shared_data *shared_msg) {
 // 	return slaveQueue;
 // }
 
-struct BNode {
-	char* md5;
-	char* fileName;
-};
+// struct BNode {
+// 	char* md5;
+// 	char* fileName;
+// };
 
 int start(struct Queue * q) {
 
@@ -350,7 +400,6 @@ int start(struct Queue * q) {
 	if (q->size == 0) {
 		exit(EXIT_SUCCESS);
 	}
-
 
 	int i;
 	pid_t pid;
@@ -360,14 +409,12 @@ int start(struct Queue * q) {
 	for (int i = 0; i < SLAVES; ++i)
 		setupSlavePipe(i);
 
-
 	// Set the number of slaves for the forking loop.
 	int slaves = SLAVES;
 
 	if (SLAVES > q->size) {
 		slaves = q->size;
 	}
-
 
 	// int jobsPerSlave = q->size / slaves;
 
@@ -392,11 +439,13 @@ int start(struct Queue * q) {
 
 		} else if (pid == 0) {
 			// This is a slave.
+
 			startSlave(i);
 
 			exit(EXIT_SUCCESS);
 		} else {
 			// This is the master.
+
 			startMaster(i, q, shared_msg);
 
 		}
@@ -409,10 +458,11 @@ int start(struct Queue * q) {
 	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
 
+	// closeEverything();
+
 	sem_wait(sem_id);
 
 	int j;
-
 
 	for (j = 0; j <= shared_msg->last; j++) {
 		printf("%s", shared_msg->buffer[j]);
