@@ -192,6 +192,120 @@ void startMaster(int slaves, struct shared_data * shared_msg) {
 
 }
 
+long int getFileSize(char* fpath) {
+	// Based on answer provided at:
+	// https://stackoverflow.com/questions/238603/how-can-i-get-a-files-size-in-c
+
+	long int sz = 0;
+
+    FILE *p = popen(cmd, "r");
+    if (p == NULL) return 0;
+
+    // Seeks to the end of the file and then returns the position
+    fseek(p, 0L, SEEK_END);
+    sz = ftell(fp);
+
+    // Resets the pointer to the beginning of the file
+    fseek(p, 0L, SEEK_SET);
+
+    pclose(p);
+
+    return sz;
+}
+
+void swapNodes(struct QNode **head_ref, int x, int y) {
+	// http://www.geeksforgeeks.org/swap-nodes-in-a-linked-list-without-swapping-data/
+	// Nothing to do if x and y are same
+	if (x == y) return;
+
+	// Search for x (keep track of prevX and CurrX
+	struct Node *prevX = NULL, *currX = *head_ref;
+	while (currX && currX->data != x)
+	{
+		prevX = currX;
+		currX = currX->next;
+	}
+
+	// Search for y (keep track of prevY and CurrY
+	struct Node *prevY = NULL, *currY = *head_ref;
+	while (currY && currY->data != y)
+	{
+	   prevY = currY;
+	   currY = currY->next;
+	}
+
+	// If either x or y is not present, nothing to do
+	if (currX == NULL || currY == NULL)
+	   return;
+
+	// If x is not head of linked list
+	if (prevX != NULL)
+	   prevX->next = currY;
+	else // Else make y as new head
+	   *head_ref = currY;  
+
+	// If y is not head of linked list
+	if (prevY != NULL)
+	   prevY->next = currX;
+	else  // Else make x as new head
+	   *head_ref = currX;
+
+	// Swap next pointers
+	struct Node *temp = currY->next;
+	currY->next = currX->next;
+	currX->next  = temp;
+}
+
+int partition (Queue q, int low, int high) {
+	// www.geeksforgeeks.org/// quick-sort/  adapted to our Queue	Agregar cuando ande todo esto de slave/master con pipes
+    struct QNode pivot;		    // pivot
+    struct QNode current;
+    struct QNode smaller;
+	int pivotAux = (((double) high) * (2/5));
+    int i = (low - 1);  // Index of smaller element
+    int j = low;
+    long int pivotSize = 0;
+
+    pivot = q->first;
+    while(pivotAux != 0) {
+    	pivot = pivot->next;
+    	pivotAux--;
+    }
+    pivotSize = getFileSize(pivot->key);
+
+    current = q->first;
+    while(j != 0) {
+    	current = current->next;
+    	j--;
+    }
+ 
+    for (j = low; j <= high- 1; j++) {
+        // If current element is smaller than or
+        // equal to pivot
+        if (getFileSize(current->key) <= pivotSize) {
+            i++;    // increment index of smaller element
+            swapNodes(q->first, i, j);
+        }
+    }
+    swapNodes(q->first, i + 1, high);
+    return (i + 1);
+}
+
+void // quickSort(Queue q, int low, int high) {	Agregar cuando ande todo esto de slave/master con pipes
+	// www.geeksforgeeks.org/// quick-sort/	Agregar cuando ande todo esto de slave/master con pipes
+    if (low < high)
+    {
+        /* pi is partitioning index, arr[p] is now
+           at right place */
+        int pi = partition(q, low, high);
+ 
+        // Separately sort elements before
+        // partition and after partition
+        // quickSort(q, low, pi - 1);	Agregar cuando ande todo esto de slave/master con pipes
+        // quickSort(q, pi + 1, high);	Agregar cuando ande todo esto de slave/master con pipes
+    }
+}
+
 int start(struct Queue * q) {
 
 	// No files to process.
@@ -287,6 +401,8 @@ int main(int argc, char **argv) {
 	// struct QNode * aux;
 	// while ( (aux = deQueue(q)) != NULL)
 	// 	printf("%s\n", aux->key);
+
+	// quickSort(q);	Agregar cuando ande todo esto de slave/master con pipes
 
 	start(q);
 
