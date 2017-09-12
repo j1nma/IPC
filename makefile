@@ -4,7 +4,7 @@ CC = gcc
 CFLAGS = -Wall -I$(IDIR) -I/usr/local/opt/openssl/include
 
 LINKER = gcc
-LFLAGS = -L /usr/local/opt/openssl/lib -lcrypto -lssl
+LFLAGS = -L /usr/local/opt/openssl/lib -lcrypto -lssl -lrt -lpthread
 
 SRCDIR = src
 OBJDIR = obj

@@ -29,7 +29,7 @@ Add the folder you wish to hash into IPC/bin
 ## Running inside /bin:
 
 ```
-./hash testFolder
+
 ```
 
 ## Authors

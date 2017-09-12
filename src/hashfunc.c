@@ -7,6 +7,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -147,6 +148,7 @@ void startSlave(int i) {
 
 void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 
+	int j, i;
 	while (1) {
 
 		// This sets up the select parameters.
@@ -156,7 +158,7 @@ void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 		timeout.tv_sec = 10;
 		timeout.tv_usec = 0;
 		int max = 0;
-		for (int j = 0; j < SLAVES; j++) {
+		for (j = 0; j < SLAVES; j++) {
 			if (toMasterDescriptors[j][0] != PIPE_CLOSED) {
 				FD_SET(toMasterDescriptors[j][0], &set);
 				if (toMasterDescriptors[j][0] > max)
@@ -177,7 +179,7 @@ void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 
 
 		// Iterrate slaves.
-		for (int i = 0; i < SLAVES; i++) {
+		for (i = 0; i < SLAVES; i++) {
 
 			// Get the file descriptor for both pipes. One master->slave and the other slave->master.
 			int k;
@@ -252,7 +254,7 @@ int start(struct Queue * q) {
 	}
 
 	// Set up pipes for each slave.
-	for (int i = 0; i < SLAVES; ++i)
+	for (i = 0; i < SLAVES; ++i)
 		setupSlavePipe(i);
 
 
@@ -275,7 +277,6 @@ int start(struct Queue * q) {
 	// Unblock shmem.
 	sem_post(sem_id);
 
-
 	// Get to forking...
 	for (i = 0; i < SLAVES; i++) {
 		if ((pid = fork()) == -1) {
@@ -296,14 +297,7 @@ int start(struct Queue * q) {
 	while (-1 != wait(&status));
 	// No more children of the master remaining.
 
-	// sem_wait(sem_id);
-	// int j;
-	// for (j = 0; j < shared_msg->last; j++) {
-	// 	printf("%s , %s", shared_msg->names[j], shared_msg->buffer[j]);
-	// 	printf("\n");
-	// }
-	// sem_post(sem_id);
-
+	// Save to disk.
 	writeMD5ToFile(shared_msg);
 
 	exit(EXIT_SUCCESS);
@@ -311,7 +305,7 @@ int start(struct Queue * q) {
 
 int main(int argc, char **argv) {
 
-	srand(time(NULL));
+	printf("%i\n", getpid()); // Send the pid to the view process.
 
 	struct Queue * q = createQueue();
 
