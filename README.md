@@ -20,7 +20,6 @@ Inside IPC folder:
 
 ```
 cd view && make && cd .. && make
-
 ```
 Add the folder you wish to hash into IPC/bin
 
