@@ -15,12 +15,12 @@ long int getFileSize(char* fpath);
 /*  Function to swap nodes x and y in linked list by
 	changing links.
 */
-void swapNodes(struct QNode **head_ref, int x, int y);
+// void swapNodes(struct QNode **head_ref, int x, int y);
 
-/*  Separates the queue acording to the chosen pivot.
-*/
-int partition (Queue q, int low, int high);
+// /*  Separates the queue acording to the chosen pivot.
+// */
+// int partition (struct Queue q, int low, int high);
 
-/*  Sorts the queue using the quicksort method.
-*/
-void quickSort(Queue q, int low, int high);
+// /*  Sorts the queue using the quicksort method.
+// */
+// void quickSort(struct Queue q, int low, int high);
