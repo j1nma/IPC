@@ -1,6 +1,6 @@
 # IPC 
 
-This project consists of learning how to use different IPCs in a POSIX system. In that manner, a system that distributes tasks will be implemented.
+This project consists of learning how to use different IPCs in a POSIX system. In that manner, a system that distributes tasks has been implemented on macOS.
 
 ## Getting Started
 
@@ -22,7 +22,11 @@ Inside IPC folder:
 make
 ```
 
-You may need to compile shmsema.c either with -lrt or -lpthread if not running on macOS.
+If you are running on Linux, edit the makefile located under IPC. Add to the LFLAGS line:
+
+```
+-lrt -lpthread
+```
 
 Add the folder you wish to hash into IPC/bin
 
