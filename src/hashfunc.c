@@ -126,7 +126,7 @@ void startSlave(int i) {
 	close(toSlave[0]);
 }
 
-void startMaster(struct shared_data * shared_msg) {
+void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 
 	while (1) {
 
@@ -168,7 +168,7 @@ void startMaster(struct shared_data * shared_msg) {
 			for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
 			if (available == -1) {
-				perror("Fatal error. Linux faild.");
+				perror("Fatal error. Linux failed.");
 				return;
 			}
 
@@ -183,7 +183,7 @@ void startMaster(struct shared_data * shared_msg) {
 				if (buffer[0] == SLAVE_READY) {
 
 					// If the slave is done, get next job.
-					struct QNode * qnode = deQueue(shared_msg->queue);
+					struct QNode * qnode = deQueue(q);
 					char *data;
 					if (qnode == NULL) {
 						// If no more jobs, send kill slave :)
@@ -247,7 +247,6 @@ int start(struct Queue * q) {
 
 	// Initiate shmem.
 	shared_msg->last = 0;
-	shared_msg->queue = q;
 
 	// Unblock shmem.
 	sem_post(sem_id);
@@ -267,7 +266,7 @@ int start(struct Queue * q) {
 		}
 	}
 
-	startMaster(shared_msg);
+	startMaster(q, shared_msg);
 
 	// The program only gets here if it's the parent/master.
 	while (-1 != wait(&status));
@@ -276,11 +275,10 @@ int start(struct Queue * q) {
 	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
 
-
 	// sem_wait(sem_id);
 	// int j;
-	// for (j = 0; j <= shared_msg->last; j++) {
-	// 	printf("%s", shared_msg->buffer[j]);
+	// for (j = 0; j < shared_msg->last; j++) {
+	// 	printf("%s , %s", shared_msg->names[j], shared_msg->buffer[j]);
 	// 	printf("\n");
 	// }
 	// sem_post(sem_id);
