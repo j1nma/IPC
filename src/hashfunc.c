@@ -29,6 +29,8 @@
 
 #define PIPE_CLOSED -1
 
+
+
 int toMasterDescriptors[SLAVES][2];
 int toSlavesDescriptors[SLAVES][2];
 
@@ -55,8 +57,6 @@ void setupSlavePipe(int i) {
 	int k;
 	for (k = 0; k < 2; k++) toSlavesDescriptors[i][k] = toSlave[k];
 	for (k = 0; k < 2; k++) toMasterDescriptors[i][k] = toMaster[k];
-
-
 }
 
 void startSlave(int i) {
@@ -95,11 +95,20 @@ void startSlave(int i) {
             printf("Could not calculate MD5 of %s.\n", buffer);
             return;
         }
+
+        char *p = strrchr(buffer, '/') +1; // Get the file name.
+
+        if (strlen(p) > MAX_FILE_NAME) {
+        	printf("File name too long: %s.\n", buffer);
+            return;
+        }
+
         // Block the shared mem.
         sem_wait(sem_id);
         int aux = shared_msg->last; // Get the last.
-        if (aux < 1024) {
-            strcpy(shared_msg->buffer[++aux], md5); // Copy the result.
+        if (aux < MAX_FILES) {
+        	strcpy(shared_msg->names[aux], p); // Copy the name.
+            strcpy(shared_msg->buffer[aux], md5); // Copy the result.
             shared_msg->last++; // Increment the buffer.
         }
         sem_post(sem_id); // Unblock the sheard mem.
@@ -268,15 +277,14 @@ int start(struct Queue * q) {
 	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
 
 
-	sem_wait(sem_id);
-	int j;
-	for (j = 0; j <= shared_msg->last; j++) {
-		printf("%s", shared_msg->buffer[j]);
-		printf("\n");
-	}
-	sem_post(sem_id);
+	// sem_wait(sem_id);
+	// int j;
+	// for (j = 0; j <= shared_msg->last; j++) {
+	// 	printf("%s", shared_msg->buffer[j]);
+	// 	printf("\n");
+	// }
+	// sem_post(sem_id);
 
-	printf("Terminó el padre.\n");
 	exit(EXIT_SUCCESS);
 }
 
