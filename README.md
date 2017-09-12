@@ -21,10 +21,25 @@ Inside IPC folder:
 ```
 cd view && make && cd .. && make
 ```
-Add the folder you wish to hash into IPC/bin
+
+Add the folder you wish to hash into IPC/bin.
+
+If you wish to run on macOS:
+
+1) Open makefile located at IPC and erase the last two libraries (lrt lpthread) from LFLAGS line. Result:
+```
+LFLAGS = -L /usr/local/opt/openssl/lib -lcrypto -lssl -lrt -lpthread
+```
+2) Do the same for the makefile located at IPC/view
 
 ## Running inside IPC:
 
+To hash files from 'testies':
+```
+cd bin && ./hash testies
+```
+
+To view files hashed at the moment:
 ```
 cd bin && ./hash testies | ./view
 ```
