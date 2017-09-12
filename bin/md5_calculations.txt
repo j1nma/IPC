@@ -1,5 +1,0 @@
-<testy3.txt> : <ca45b5e9e1144dec029dc0ac04c298d6>
-<Mate2_20161_prac0.pdf> : <38244ce9681feba0827f5074eca17fc8>
-<testy2.txt> : <da753640864d2322fbae604e79a692e2>
-<testy.txt> : <120ea8a25e5d487bf68b5f7096440019>
-<Operating Systems - Willian Stockings.pdf> : <eb8dc39ff88fbcee866dc5627ce1428d>
