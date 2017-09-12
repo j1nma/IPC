@@ -48,7 +48,7 @@ cd bin && ./hash testFolder | ./view
 
 * **Juan Manuel Alonso** - (https://github.com/j1nma)
 * **Ioni Zelig Nielavitzky** - (https://github.com/jnielavitzky)
-* **Nicolás Paganini** - https://github.com/npaganini)
+* **Nicolás Paganini** - (https://github.com/npaganini)
 * **Martina Scomazzon** - (https://github.com/mscomazzon)
 
 ## License
