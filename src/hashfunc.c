@@ -29,15 +29,33 @@
 
 #define PIPE_CLOSED -1
 
-
+/* Semaphore declaration */
+sem_t * sem_id;
 
 int toMasterDescriptors[SLAVES][2];
 int toSlavesDescriptors[SLAVES][2];
 
+/**
+ * Save md5 calculations to file.
+ */
+void writeMD5ToFile(struct shared_data * shared_msg) {
 
-/* Semaphore declaration */
-sem_t * sem_id;
+	FILE * f = fopen("md5_calculations.txt", "w");
 
+	if (f == NULL) {
+		perror("Error opening file!\n");
+		exit(1);
+	}
+
+	sem_wait(sem_id);
+	int j;
+	for (j = 0; j < shared_msg->last; j++) {
+		fprintf(f, "<%s> : <%s>\n", shared_msg->names[j], shared_msg->buffer[j]);
+	}
+	sem_post(sem_id);
+
+	fclose(f);
+}
 
 void setupSlavePipe(int i) {
 
@@ -70,10 +88,10 @@ void startSlave(int i) {
 	for (k = 0; k < 2; k++) toSlave[k] = toSlavesDescriptors[i][k];
 	for (k = 0; k < 2; k++) toMaster[k] = toMasterDescriptors[i][k];
 
-	while(1) {
+	while (1) {
 
 		struct shared_data * shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) ); /* The shared segment, and head of the messages list */
-		prepareSharedMemoryWithSemaphores(sem_id, &shared_msg);
+		prepareSharedMemory(&shared_msg);
 
 		// Create message and write it.
 		data[0] = SLAVE_READY;
@@ -91,28 +109,29 @@ void startSlave(int i) {
 
 		// Calculating MD5!
 		char md5[MD5_LEN + 1];
-        if (!calculateMD5(buffer, md5)) {
-            printf("Could not calculate MD5 of %s.\n", buffer);
-            return;
-        }
+		if (!calculateMD5(buffer, md5)) {
+			printf("Could not calculate MD5 of %s.\n", buffer);
+			return;
+		}
 
-        char *p = strrchr(buffer, '/') +1; // Get the file name.
+		char *p = strrchr(buffer, '/') + 1; // Get the file name.
 
-        if (strlen(p) > MAX_FILE_NAME) {
-        	printf("File name too long: %s.\n", buffer);
-            return;
-        }
+		if (strlen(p) > MAX_FILE_NAME) {
+			printf("File name too long: %s.\n", buffer);
+			return;
+		}
 
-        // Block the shared mem.
-        sem_wait(sem_id);
-        int aux = shared_msg->last; // Get the last.
-        if (aux < MAX_FILES) {
-        	strcpy(shared_msg->names[aux], p); // Copy the name.
-            strcpy(shared_msg->buffer[aux], md5); // Copy the result.
-            shared_msg->last++; // Increment the buffer.
-        }
-        sem_post(sem_id); // Unblock the sheard mem.
-		
+		// Block the shared mem.
+		sem_wait(sem_id);
+		int aux = shared_msg->last; // Get the last.
+		if (aux < MAX_FILES) {
+			strcpy(shared_msg->names[aux], p); // Copy the name.
+			strcpy(shared_msg->buffer[aux], md5); // Copy the result.
+			shared_msg->last++; // Increment the buffer.
+		}
+		sem_post(sem_id);
+		// Unblock the sheard mem.
+
 	}
 
 	// If the slave got here, it shoud dieeee...
@@ -144,7 +163,7 @@ void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 					max = toMasterDescriptors[j][0];
 			}
 		}
-		errno = 0; 
+		errno = 0;
 
 
 		// If max is 0 then no more file descriptors are available.
@@ -190,7 +209,7 @@ void startMaster(struct Queue * q, struct shared_data * shared_msg) {
 						char *killSlave = malloc(sizeof(char));
 						killSlave[0] = KILL_SLAVE;
 						data = killSlave;
-					}else{
+					} else {
 						// Otherwise send job dir string.
 						data = qnode->key;
 					}
@@ -239,8 +258,13 @@ int start(struct Queue * q) {
 
 	// Creating the shared memory.
 	struct shared_data *shared_msg = (struct shared_data *) malloc( sizeof(struct shared_data *) );   /* The shared segment, and head of the messages list */
-	prepareSharedMemoryWithSemaphores(sem_id, &shared_msg);
+	prepareSharedMemory(&shared_msg);
 
+	// Semaphore initialization.
+	sem_id = prepareSemaphore(getpid());
+
+	/* Register signal and signal handler */
+	signal(SIGINT, signalCallbackHandler);
 
 	// Block shmem.
 	sem_wait(sem_id);
@@ -272,9 +296,6 @@ int start(struct Queue * q) {
 	while (-1 != wait(&status));
 	// No more children of the master remaining.
 
-	// Here status can be the following constants: WIFEXITED,WIFEXITSTATUS, etc. No use currently.
-	// https://www.tutorialspoint.com/unix_system_calls/wait.htm
-
 	// sem_wait(sem_id);
 	// int j;
 	// for (j = 0; j < shared_msg->last; j++) {
@@ -282,6 +303,8 @@ int start(struct Queue * q) {
 	// 	printf("\n");
 	// }
 	// sem_post(sem_id);
+
+	writeMD5ToFile(shared_msg);
 
 	exit(EXIT_SUCCESS);
 }
@@ -295,6 +318,8 @@ int main(int argc, char **argv) {
 	loadFiles(argv[1], q);
 
 	start(q);
+
+	terminateSharedMemoryAndSemaphore(sem_id);
 
 	return 0;
 }

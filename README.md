@@ -22,6 +22,8 @@ Inside IPC folder:
 make
 ```
 
+You may need to compile shmsema.c either with -lrt or -lpthread if not running on macOS.
+
 Add the folder you wish to hash into IPC/bin
 
 ## Running inside /bin:

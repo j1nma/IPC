@@ -15,7 +15,11 @@ struct shared_data {
 
 void signalCallbackHandler(int signum);
 
-void prepareSharedMemoryWithSemaphores(sem_t * sem_id, struct shared_data * * shared_msg);
+char * setSemaphoreName(int pid);
 
-void terminateSemaphore(sem_t * sem_id);
+sem_t * prepareSemaphore(int pid);
+
+void prepareSharedMemory(struct shared_data * * shared_msg);
+
+void terminateSharedMemoryAndSemaphore(sem_t * sem_id);
 

@@ -1,7 +1,6 @@
 /**
  * Based on https://stackoverflow.com/a/3395752/1815727
  * Credit goes to the user that answered that question.
-
  * accessed by j1nma, 1 Sep. 2017
  */
 
