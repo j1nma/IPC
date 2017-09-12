@@ -22,33 +22,34 @@ Inside IPC folder:
 cd view && make && cd .. && make
 ```
 
-Add the folder you wish to hash into IPC/bin.
+Add the folder of files you wish to hash into IPC/bin.
 
 If you wish to run on macOS:
 
 1) Open makefile located at IPC and erase the last two libraries (lrt lpthread) from LFLAGS line. Result:
 ```
-LFLAGS = -L /usr/local/opt/openssl/lib -lcrypto -lssl -lrt -lpthread
+LFLAGS = -L /usr/local/opt/openssl/lib -lcrypto -lssl
 ```
 2) Do the same for the makefile located at IPC/view
 
 ## Running inside IPC:
 
-To hash files from 'testies':
+To hash files from the 'testFolder' folder:
 ```
-cd bin && ./hash testies
+cd bin && ./hash testFolder
 ```
 
 To view files hashed at the moment:
 ```
-cd bin && ./hash testies | ./view
+cd bin && ./hash testFolder | ./view
 ```
 
 ## Authors
 
-<!-- * **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth) -->
-
-See the list of [contributors](https://github.com/j1nma/IPC/contributors) who participated in this project.
+* **Juan Manuel Alonso** - (https://github.com/j1nma)
+* **Ioni Zelig Nielavitzky** - (https://github.com/jnielavitzky)
+* **Nicolás Paganini** - https://github.com/npaganini)
+* **Martina Scomazzon** - (https://github.com/mscomazzon)
 
 ## License
 
